@@ -123,4 +123,26 @@ public sealed class SqliteReportRepository(SqliteDb db) : IReportRepository
         }
         return groups;
     }, "Cannot list duplicate groups");
+
+    public IReadOnlyList<DuplicateGroupDto> GetDuplicateGroupSample(int count, long maxSize) => db.Run(c =>
+    {
+        var groups = new List<DuplicateGroupDto>();
+        using (var cmd = Cmd(c, """
+            SELECT full_hash, size, COUNT(*) FROM files
+            WHERE missing = 0 AND size > 0 AND size <= $max AND full_hash IS NOT NULL
+            GROUP BY full_hash, size HAVING COUNT(*) > 1
+            ORDER BY random() LIMIT $n
+            """, null, ("$n", count), ("$max", maxSize)))
+        using (var r = cmd.ExecuteReader())
+            while (r.Read()) groups.Add(new DuplicateGroupDto { FullHash = (byte[])r[0], Size = r.GetInt64(1), Copies = r.GetInt64(2) });
+
+        foreach (var g in groups)
+        {
+            using var cmd = Cmd(c, "SELECT disk_id, path, mtime FROM files WHERE full_hash = $h AND missing = 0 ORDER BY mtime DESC",
+                null, ("$h", g.FullHash));
+            using var r = cmd.ExecuteReader();
+            while (r.Read()) g.Locations.Add(new DuplicateCopyDto { DiskId = r.GetInt64(0), Path = r.GetString(1), MtimeTicks = r.GetInt64(2) });
+        }
+        return groups;
+    }, "Cannot sample duplicate groups");
 }

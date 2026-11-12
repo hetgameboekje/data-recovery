@@ -1,4 +1,4 @@
-using RecoveryUI.ViewModels;
+﻿using RecoveryUI.ViewModels;
 
 namespace RecoveryUI.Views;
 
@@ -62,6 +62,8 @@ public interface IReportView : IPageView
     event EventHandler? RefreshRequested;
     event EventHandler? HashPendingRequested;
     event EventHandler<int>? DuplicateGroupsRequested;
+    /// <summary>Re-read a sample of duplicate groups and compare them (independent check).</summary>
+    event EventHandler? CheckDuplicatesRequested;
     void ShowReport(ReportViewModel vm);
     void ShowDuplicateGroups(IReadOnlyList<DuplicateGroupViewModel> groups);
 }

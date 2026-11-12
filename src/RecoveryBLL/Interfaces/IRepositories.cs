@@ -46,6 +46,8 @@ public interface IReportRepository
     IReadOnlyList<TypeSummaryDto> GetTypeSummaries();
     IReadOnlyList<long> GetDiskIdsWithPendingFiles();
     IReadOnlyList<DuplicateGroupDto> GetLargestDuplicateGroups(int top);
+    /// <summary>A random sample of duplicate groups whose file size is at most <paramref name="maxSize"/>, with every copy.</summary>
+    IReadOnlyList<DuplicateGroupDto> GetDuplicateGroupSample(int count, long maxSize);
 }
 
 /// <summary>Reading a whole catalog (merge source) and merging records into one (merge target).</summary>

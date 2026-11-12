@@ -1,4 +1,4 @@
-namespace RecoveryUI.Views;
+﻿namespace RecoveryUI.Views;
 
 partial class ReportView
 {
@@ -25,6 +25,7 @@ partial class ReportView
         lblPending = new Label();
         btnHashPending = new Button();
         btnRefresh = new Button();
+        btnCheckDuplicates = new Button();
         tabs = new TabControl();
         tabTypes = new TabPage();
         gridTypes = new DataGridView();
@@ -112,6 +113,7 @@ partial class ReportView
         panelPending.AutoSize = true;
         panelPending.Controls.Add(lblPending);
         panelPending.Controls.Add(btnHashPending);
+        panelPending.Controls.Add(btnCheckDuplicates);
         panelPending.Controls.Add(btnRefresh);
         panelPending.Margin = new Padding(0, 0, 0, 8);
         panelPending.Name = "panelPending";
@@ -134,6 +136,12 @@ partial class ReportView
         btnRefresh.Margin = new Padding(12, 3, 3, 3);
         btnRefresh.Name = "btnRefresh";
         btnRefresh.Text = "Refresh";
+        //
+        // btnCheckDuplicates
+        //
+        btnCheckDuplicates.Margin = new Padding(12, 3, 3, 3);
+        btnCheckDuplicates.Name = "btnCheckDuplicates";
+        btnCheckDuplicates.Text = "Check duplicates";
         //
         // tabs
         //
@@ -248,6 +256,7 @@ partial class ReportView
     private Label lblPending;
     private Button btnHashPending;
     private Button btnRefresh;
+    private Button btnCheckDuplicates;
     private TabControl tabs;
     private TabPage tabTypes;
     private DataGridView gridTypes;

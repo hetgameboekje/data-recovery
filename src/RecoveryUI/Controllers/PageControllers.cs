@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using RecoveryBLL;
 using RecoveryBLL.Exceptions;
 using RecoveryBLL.Models;
@@ -220,7 +220,8 @@ public sealed class ScanController(
 }
 
 public sealed class ReportController(
-    IReportView view, IMainView main, OperationRunner runner, ReportService reports, FingerprintService fingerprints) : IPageController
+    IReportView view, IMainView main, OperationRunner runner, ReportService reports, FingerprintService fingerprints,
+    DuplicateCheckService duplicateCheck) : IPageController
 {
     public Page Page => Page.Report;
     public string Title => "Report";
@@ -230,6 +231,7 @@ public sealed class ReportController(
     {
         view.RefreshRequested += (_, _) => OnShown();
         view.HashPendingRequested += (_, _) => HashPending();
+        view.CheckDuplicatesRequested += (_, _) => CheckDuplicates();
         view.DuplicateGroupsRequested += (_, n) => Task.Run(() =>
         {
             try
@@ -277,6 +279,32 @@ public sealed class ReportController(
         }
         catch (RecoveryServiceException ex) { main.ShowError("Report", ex.Message); }
     });
+
+    /// <summary>Independent check: re-read every copy of 20 random duplicate groups and compare them with SHA-256.</summary>
+    async void CheckDuplicates()
+    {
+        if (runner.IsBusy) { main.ShowInfo("Busy", "Another operation is running (see the bottom of the window). Check the duplicates when it is done."); return; }
+        var progress = new Progress<ProgressInfo>(p => main.SetProgress(ProgressText.From(p)));
+        DuplicateCheckResult? r = null;
+        await runner.RunAsync("Checking duplicates", ct => r = duplicateCheck.CheckSample(20, progress, ct),
+            ex => main.ShowError("Check duplicates", ex.Message));
+        if (r == null) return;
+
+        // Expert tab: every checked group with its verdict and the SHA-256 of each copy.
+        view.ShowDuplicateGroups(r.Groups.Select(g => new DuplicateGroupViewModel(
+            $"{(g.Identical ? "IDENTICAL" : g.Different ? "DIFFERENT" : "not checked")}  —  {g.Copies.Count} copies × {Format.Bytes(g.Size)}",
+            g.Copies.Select(c => $"{(c.Sha256 ?? "-")[..Math.Min(16, (c.Sha256 ?? "-").Length)]}   {c.FullPath}{(c.Problem != null ? "   (" + c.Problem + ")" : "")}").ToList())).ToList());
+
+        var examples = string.Join("\n\n", r.Groups.Where(g => g.Identical || g.Different).Take(4).Select(g =>
+            $"{(g.Identical ? "Identical" : "DIFFERENT")} ({Format.Bytes(g.Size)}):\n" + string.Join("\n", g.Copies.Take(3).Select(c => "   " + c.FullPath))));
+        var verdict = r.Groups.Count == 0
+            ? "There are no duplicate groups to check yet (fingerprinting decides what is a duplicate)."
+            : r.Different == 0
+                ? $"All {r.Identical} checked groups are really identical: every copy was re-read and matched byte for byte (SHA-256)."
+                : $"{r.Different} of {r.Groups.Count} groups are NOT identical. A file changed after it was scanned, or a read failed: scan those disks again (details in the log).";
+        var notChecked = r.NotChecked > 0 ? $"\n{r.NotChecked} groups could not be checked (a disk is unplugged or a copy could not be read)." : "";
+        main.ShowInfo("Check duplicates", $"{verdict}{notChecked}\nRead {Format.Bytes(r.BytesRead)}.\n\n{examples}\n\nThe full list is in Expert mode, tab \"Largest duplicate groups\".");
+    }
 
     async void HashPending()
     {

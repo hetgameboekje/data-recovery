@@ -60,7 +60,7 @@ public sealed class CopyController(
 
     async void CheckPlan()
     {
-        if (view.Destinations.Count == 0) { main.ShowInfo("No destination", "Add at least one destination in step 1 (your backup disk)."); return; }
+        if (view.Destinations.Count == 0) { main.ShowInfo("No backup disk", "First choose your backup disk in step 1."); return; }
         if (runner.IsBusy) { main.ShowInfo("Busy", "Another operation is running. Stop it first or wait until it finishes."); return; }
         Invalidate();
         view.SetRunning(true);
@@ -74,7 +74,6 @@ public sealed class CopyController(
             return;
         }
         plan = result;
-        view.ShowResult("", true);
         view.ShowPlan(ToViewModel(result, view.Options));
     }
 
@@ -83,7 +82,7 @@ public sealed class CopyController(
         if (plan == null || plan.Deletions.IsEmpty) return;
         // Step 1 of 2: the person sees exactly these files; approving stores the code of this list.
         if (DeletionDialogs.ApproveList(plan.Deletions,
-                "To make room for unique files, these identical copies in _Duplicates would be deleted. The same content stays on the destination."))
+                "To make room for unique files, these identical copies in _Duplicates would be deleted. The same content stays on the backup disk."))
         {
             approvedCode = plan.Deletions.Code;
             view.SetDeletionApproval($"Step 1 of 2 done: {plan.Deletions.Count:N0} old duplicates approved. You confirm once more when the copy starts.", true);
@@ -142,7 +141,7 @@ public sealed class CopyController(
         if (r.NoRoom > 0) lines.Add($"{r.NoRoom:N0} files did not fit.");
         if (r.Errors > 0) lines.Add($"{r.Errors:N0} files could not be copied (see the log in Expert mode).");
         foreach (var f in r.FailingDisks) lines.Add($"{f} kept timing out and was skipped: it may be failing. Image it before trying again.");
-        lines.Add(r.Completed ? "Check the plan again to see whether anything is left. The destinations are safe to unplug."
+        lines.Add(r.Completed ? "Check the plan again to see whether anything is left. The backup disks are safe to unplug."
                               : "Stopped. Start again to continue where it stopped.");
         return string.Join(Environment.NewLine, lines);
     }
@@ -160,7 +159,7 @@ public sealed class CopyController(
         if (!p.UniqueFits)
             verdict = $"Does not fit: {Format.Bytes(p.UniqueNoRoomBytes)} of unique data has no room ({Format.Bytes(p.UsableBytes)} usable). Add an overflow disk.";
         else if (p.FilesToCopy == 0)
-            verdict = "Nothing left to copy: everything is already on the destinations.";
+            verdict = "Nothing left to copy: everything is already on the backup disk.";
         else
             verdict = $"Everything fits: {Format.Bytes(p.UniqueBytes)} of unique data, {Format.Bytes(p.UsableBytes)} usable."
                       + (p.DuplicatesNoRoom > 0 ? $" {p.DuplicatesNoRoom:N0} duplicates don't fit; that's fine, one copy of their content is kept." : "");

@@ -59,7 +59,7 @@ dotnet run --project src/RecoveryUI
 You can also press F5 in Visual Studio (start project **RecoveryUI**) or VS Code ("Recovery Toolkit (WinForms)"), or start `RecoveryToolkit.exe` after `dotnet publish` (see Setup). Then follow the three steps on the Home page:
 
 1. **Catalog disks.** Plug in a disk, tick it, press Start. This only reads the disk. Repeat for every disk, one at a time if you like; the catalog remembers them all.
-2. **Report.** See how much is unique and how much is duplicated. If it says something is "not yet decided", press "Fingerprint the rest", or plug in the disk it names.
+2. **Report.** See how much is unique and how much is duplicated. If it says something is "not yet decided", press "Fingerprint the rest", or plug in the disk it names. **Check duplicates** re-reads every copy of 20 random duplicate groups and compares them byte for byte (SHA-256, independent of the catalog's own hash), so you can see for yourself that duplicates really are identical. It is read-only.
 3. **Copy.**
    1. Add your backup disks: the main disk first, then overflow disks.
    2. Press **Check the plan**. This is a dry run that writes nothing.
@@ -85,12 +85,13 @@ A typical run, with source disks F: and G: and backup disks H: (main) and I: (ov
 publish\rtcatalog scan F:\
 publish\rtcatalog scan G:\
 publish\rtcatalog report --top 20
+publish\rtcatalog verify
 publish\rtcatalog plan H:\ I:\ --csv plan.csv
 publish\rtcatalog copy H:\ I:\
 ```
 
 1. `scan` catalogs and fingerprints one source disk. It only reads the disk. Repeat it for every source disk.
-2. `report` shows what is unique and what is duplicated.
+2. `report` shows what is unique and what is duplicated. `verify` re-reads 20 random duplicate groups and confirms they are byte-for-byte identical (`--top 50` for more).
 3. `plan` is a dry run: what goes where, and whether it fits. It writes nothing; `plan.csv` lists every file.
 4. `copy` does the copy. Ctrl+C stops it; running the same command again continues where it stopped.
 

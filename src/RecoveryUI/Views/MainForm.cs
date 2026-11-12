@@ -72,6 +72,20 @@ public partial class MainForm : Form, IMainView
         b.Cursor = Cursors.Hand;
     }
 
+    /// <summary>
+    /// With display scaling (125–175 %, usual on laptops) the designed size can be taller than the screen, which hides the
+    /// status bar with its Stop button. Never open larger than the screen: maximise instead, otherwise centre.
+    /// </summary>
+    protected override void OnLoad(EventArgs e)
+    {
+        base.OnLoad(e);
+        var area = Screen.FromControl(this).WorkingArea;
+        if (Width > area.Width || Height > area.Height)
+            WindowState = FormWindowState.Maximized;
+        else
+            Location = new Point(area.Left + (area.Width - Width) / 2, area.Top + (area.Height - Height) / 2);
+    }
+
     public void ShowPage(IPageView page, Page which, string title)
     {
         lblPageTitle.Text = title;

@@ -28,8 +28,10 @@ public partial class CopyView : UserControl, ICopyView
     public CopyView()
     {
         InitializeComponent();
-        foreach (var l in new[] { lblStep1, lblStep2, lblStep3 }) l.Font = UiTheme.HeadingFont;
-        lblStep1Hint.ForeColor = lblNotes.ForeColor = lblDetail.ForeColor = UiTheme.Muted;
+        foreach (var l in new[] { lblStep1, lblStep2, lblStep3, lblIntroTitle }) l.Font = UiTheme.HeadingFont;
+        lblStep1Hint.ForeColor = lblStep2Hint.ForeColor = lblNotes.ForeColor = lblDetail.ForeColor = lblIntroDeep.ForeColor = UiTheme.Muted;
+        panelIntro.BackColor = UiTheme.Card;
+        lblIntroExample.Font = new Font("Consolas", 9.5f);
         lblSafe.ForeColor = UiTheme.Good;
         lblVerdict.Font = UiTheme.HeadingFont;
         lblStage.Font = UiTheme.HeadingFont;
@@ -67,6 +69,7 @@ public partial class CopyView : UserControl, ICopyView
         panelPlan.Visible = false;
         panelProgress.Visible = false;
         SetExpertMode(false);
+        UpdateGuidance();
     }
 
     public IReadOnlyList<DestinationChoiceViewModel> Destinations => lstDestinations.Items.Cast<DestinationChoiceViewModel>().ToList();
@@ -114,7 +117,7 @@ public partial class CopyView : UserControl, ICopyView
     {
         using var dlg = new FolderBrowserDialog
         {
-            Description = "Choose the destination folder (on the Windows drive: a subfolder such as C:\\Recovery)",
+            Description = "Choose the backup folder (on the Windows drive: a subfolder such as C:\\Recovery)",
             UseDescriptionForTitle = true,
             ShowNewFolderButton = true,
         };
@@ -166,7 +169,18 @@ public partial class CopyView : UserControl, ICopyView
     void Changed()
     {
         if (running) return;
+        UpdateGuidance();
         SettingsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Only the next sensible step is clickable: no plan without a destination, no copy without a plan.</summary>
+    void UpdateGuidance()
+    {
+        bool hasDestination = lstDestinations.Items.Count > 0;
+        btnPlan.Enabled = hasDestination && !running;
+        lblStep2Hint.Text = hasDestination
+            ? "Press \"Check the plan\": it shows how much will be copied, whether it fits, and where it goes. Nothing is written. You can do this as often as you like."
+            : "First add a backup disk in step 1.";
     }
 
     public void ShowPlan(CopyPlanViewModel? plan) => this.OnUi(() =>
@@ -176,6 +190,7 @@ public partial class CopyView : UserControl, ICopyView
         btnExport.Visible = expert && planShown;
         btnStart.Enabled = plan?.CanStart == true && !running;
         if (plan == null) return;
+        if (!running) panelProgress.Visible = false;   // the preview's own progress is done; step 3 shows the copy's
         tileToCopy.Value = plan.ToCopy;
         tileToCopy.Caption = plan.ToCopyCaption;
         tileUnique.Value = plan.Unique;
@@ -203,7 +218,7 @@ public partial class CopyView : UserControl, ICopyView
     {
         running = on;
         btnStop.Visible = on;
-        btnPlan.Enabled = !on;
+        UpdateGuidance();
         btnStart.Enabled = !on && planShown;
         panelDest.Enabled = groupOptions.Enabled = btnReviewDeletions.Enabled = !on;
         if (on) { lblResult.Text = ""; panelProgress.Visible = true; }

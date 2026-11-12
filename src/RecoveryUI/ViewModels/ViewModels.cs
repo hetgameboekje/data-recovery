@@ -164,7 +164,7 @@ public sealed class CopyOptionsViewModel
 
 public sealed class DestinationRowViewModel
 {
-    [DisplayName("Destination")] public required string Name { get; init; }
+    [DisplayName("Backup disk")] public required string Name { get; init; }
     [DisplayName("Folder")] public required string Folder { get; init; }
     [DisplayName("Free"), Numeric] public required string Free { get; init; }
     [DisplayName("Will be used"), Numeric] public required string Planned { get; init; }

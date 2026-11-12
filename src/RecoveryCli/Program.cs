@@ -15,6 +15,7 @@ const string Usage = """
       rtcatalog scan <folder or drive> [...]   List files, fingerprint possible duplicates, read image info, report
       rtcatalog hash                           Fingerprint whatever is still pending on the disks plugged in now
       rtcatalog report [--top N]               Totals per disk: unique / duplicated / not yet decided
+      rtcatalog verify [--top N]               Check that duplicates really are identical: re-read N random groups (default 20) with SHA-256
       rtcatalog disks                          Catalogued disks and the drives plugged in now (with bus: USB/SATA/NVMe...)
       rtcatalog devices                        Physical disks: number, model, bus, HDD/SSD (needed for Linux mounts)
       rtcatalog merge <other-catalog.db>       Merge a catalog made on another PC into this one
@@ -180,6 +181,10 @@ try
 
         case "cleanup":
             RunCleanup();
+            break;
+
+        case "verify":
+            RunVerify(top > 0 ? top : 20);
             break;
 
         case "plan":
@@ -367,6 +372,24 @@ try
     {
         PlanExport.WriteCsv(plan, Get<DiskService>().GetCatalogued().ToDictionary(d => d.Id, d => d.DisplayName), path);
         Console.WriteLine($"  Plan written to {Path.GetFullPath(path)}");
+    }
+
+    void RunVerify(int groups)
+    {
+        Console.WriteLine($"Catalog: {catalog.Description}");
+        Console.WriteLine($"Re-reading every copy of {groups} random duplicate groups (files up to {Format.Bytes(DuplicateCheckService.DefaultMaxFileSize)}) and comparing them with SHA-256.");
+        var r = Get<DuplicateCheckService>().CheckSample(groups, progress, cts.Token);
+        foreach (var g in r.Groups)
+        {
+            var verdict = g.Identical ? "IDENTICAL" : g.Different ? "DIFFERENT" : "not checked";
+            Console.WriteLine();
+            Console.WriteLine($"  {verdict,-11}  {Format.Bytes(g.Size)} x {g.Copies.Count}");
+            foreach (var c in g.Copies)
+                Console.WriteLine($"      {(c.Sha256 ?? "-")[..Math.Min(16, (c.Sha256 ?? "-").Length)],-16}  {c.FullPath}{(c.Problem != null ? "   (" + c.Problem + ")" : "")}");
+        }
+        Console.WriteLine();
+        Console.WriteLine($"Result: {r.Identical} identical, {r.Different} different, {r.NotChecked} not checked (copies unreadable or disk unplugged). Read {Format.Bytes(r.BytesRead)}.");
+        if (r.Different > 0) Console.WriteLine("Different groups mean a file changed after it was scanned (or a read error): scan those disks again.");
     }
 
     void RunCleanup()

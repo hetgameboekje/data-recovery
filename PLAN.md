@@ -640,4 +640,23 @@ Already available in this setup: `code-review`, `code-simplifier`, `engineering`
 - Real-hardware checks (3.7 open item 6): pull a USB source and a destination during `copy` and plug them into another port; put `catalog.db` on a USB disk and try to scan that disk (must be refused).
 - ~~Build Phase 2 (copy plan + dry-run report)~~: done in the CLI and the desktop app ("Copy" page).
 - Next to build: Phase 2b (disk map), unless Phase 3 (junk detection) is wanted first. Section 9 still asks whether the disk map should come earlier.
+- **Duplicate check (built 2026-11-12, first real data).** Asked: "check whether the duplicates really are duplicates; there is no way to check this."
+  - Built `DuplicateCheckService`: it re-reads every copy of N random duplicate groups with SHA-256 (independent of the catalog's xxHash128) and reports identical / different / not checked. Report page: "Check duplicates"; CLI: `rtcatalog verify [--top N]`.
+  - **Real catalog** (F: "Folders" + G:, 141,525 files, 10,625 duplicate groups): **16 of 16 sampled groups were identical.** That covers big videos, photos, music in both `F:\Documenten\folders\muziek` and `G:\Audio`, and tiny files.
+  - Findings for later phases:
+    - `G:\From_E\MediaRecovery\_Duplicates` is the old PowerShell toolkit's duplicates folder, so its files show up as extra copies.
+    - There are 339 identical 24-byte "mp4" files: recovery scraps, not videos (Phase 3/4).
+    - `F:\postgres-data` holds database files that are identical across databases. Keep them as a set: never treat them as junk duplicates (Phase 3).
+  - Window fix: at display scaling the window was taller than the screen, which hid the status bar's Stop button. It now opens maximised when it doesn't fit, otherwise centred.
+  - Open question to the user: "no way of clearing that out" (see the conversation).
+- **Copy page usability (2026-11-12, user feedback: "buttons are underneath the live log; I don't understand what it should do").**
+  - Fixed the layout: the page didn't scroll, because a TableLayoutPanel with a stretching row can't scroll. The content now sits in a normal scrolling panel, so steps 2 and 3 are always reachable.
+  - Added "What does Copy do?" at the top of the page:
+    - the source disks are only read;
+    - one copy of each unique file goes to the backup, sorted by type with the original folders kept;
+    - `_Duplicates` and `_OlderVersions` hold the extras; nothing is overwritten; stop and continue any time;
+    - an example path;
+    - Copy vs Deep recovery: Copy handles visible files only; deleted files are Deep recovery (coming; for now the old toolkit).
+  - The steps are named "Step 1 — Choose your backup disk", "Step 2 — Preview (nothing is written yet)", "Step 3 — Start copying". Each has an explanation, and only the next sensible button is enabled (no preview without a destination, no copy without a preview).
+  - Idea for later: the same kind of "what does this do" block on the Catalog and Report pages, and a short page comparing Copy and Deep recovery.
 - Next step for the data: catalog every disk (UI "Catalog disks" or `rtcatalog scan`), including the other PC, then `rtcatalog plan <2 TB disk> <1 TB disk>` and check the plan before `copy`.

@@ -1,4 +1,4 @@
-namespace RecoveryUI.Views;
+﻿namespace RecoveryUI.Views;
 
 partial class CopyView
 {
@@ -14,7 +14,14 @@ partial class CopyView
 
     private void InitializeComponent()
     {
+        scroll = new Panel();
         layout = new TableLayoutPanel();
+        panelIntro = new FlowLayoutPanel();
+        lblIntroTitle = new Label();
+        lblIntro = new Label();
+        lblIntroExample = new Label();
+        lblIntroDeep = new Label();
+        lblStep2Hint = new Label();
         lblStep1 = new Label();
         lblStep1Hint = new Label();
         panelDest = new FlowLayoutPanel();
@@ -63,7 +70,9 @@ partial class CopyView
         progress = new ProgressBar();
         lblDetail = new Label();
         lblResult = new Label();
+        scroll.SuspendLayout();
         layout.SuspendLayout();
+        panelIntro.SuspendLayout();
         panelDest.SuspendLayout();
         panelDestButtons.SuspendLayout();
         groupOptions.SuspendLayout();
@@ -79,27 +88,37 @@ partial class CopyView
         panelProgress.SuspendLayout();
         SuspendLayout();
         //
+        // scroll
+        //
+        scroll.AutoScroll = true;
+        scroll.Controls.Add(layout);
+        scroll.Dock = DockStyle.Fill;
+        scroll.Name = "scroll";
+        scroll.Size = new Size(900, 900);
+        //
         // layout
         //
-        layout.AutoScroll = true;
+        layout.AutoSize = true;
+        layout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         layout.ColumnCount = 1;
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        layout.Controls.Add(lblStep1, 0, 0);
-        layout.Controls.Add(lblStep1Hint, 0, 1);
-        layout.Controls.Add(panelDest, 0, 2);
-        layout.Controls.Add(groupOptions, 0, 3);
-        layout.Controls.Add(lblStep2, 0, 4);
-        layout.Controls.Add(panelPlanButtons, 0, 5);
-        layout.Controls.Add(panelPlan, 0, 6);
-        layout.Controls.Add(lblStep3, 0, 7);
-        layout.Controls.Add(lblSafe, 0, 8);
-        layout.Controls.Add(panelStart, 0, 9);
-        layout.Controls.Add(panelProgress, 0, 10);
-        layout.Dock = DockStyle.Fill;
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        layout.Controls.Add(panelIntro, 0, 0);
+        layout.Controls.Add(lblStep1, 0, 1);
+        layout.Controls.Add(lblStep1Hint, 0, 2);
+        layout.Controls.Add(panelDest, 0, 3);
+        layout.Controls.Add(groupOptions, 0, 4);
+        layout.Controls.Add(lblStep2, 0, 5);
+        layout.Controls.Add(lblStep2Hint, 0, 6);
+        layout.Controls.Add(panelPlanButtons, 0, 7);
+        layout.Controls.Add(panelPlan, 0, 8);
+        layout.Controls.Add(lblStep3, 0, 9);
+        layout.Controls.Add(lblSafe, 0, 10);
+        layout.Controls.Add(panelStart, 0, 11);
+        layout.Controls.Add(panelProgress, 0, 12);
         layout.Location = new Point(0, 0);
         layout.Name = "layout";
-        layout.Padding = new Padding(16, 8, 16, 16);
-        layout.RowCount = 12;
+        layout.Padding = new Padding(16, 8, 16, 24);
+        layout.RowCount = 13;
         layout.RowStyles.Add(new RowStyle());
         layout.RowStyles.Add(new RowStyle());
         layout.RowStyles.Add(new RowStyle());
@@ -111,23 +130,77 @@ partial class CopyView
         layout.RowStyles.Add(new RowStyle());
         layout.RowStyles.Add(new RowStyle());
         layout.RowStyles.Add(new RowStyle());
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
-        layout.Size = new Size(900, 900);
+        layout.RowStyles.Add(new RowStyle());
+        layout.RowStyles.Add(new RowStyle());
         layout.TabIndex = 0;
+        //
+        // panelIntro
+        //
+        panelIntro.AutoSize = true;
+        panelIntro.Controls.Add(lblIntroTitle);
+        panelIntro.Controls.Add(lblIntro);
+        panelIntro.Controls.Add(lblIntroExample);
+        panelIntro.Controls.Add(lblIntroDeep);
+        panelIntro.FlowDirection = FlowDirection.TopDown;
+        panelIntro.Margin = new Padding(3, 3, 3, 8);
+        panelIntro.Name = "panelIntro";
+        panelIntro.Padding = new Padding(12, 10, 12, 10);
+        panelIntro.WrapContents = false;
+        //
+        // lblIntroTitle
+        //
+        lblIntroTitle.AutoSize = true;
+        lblIntroTitle.Name = "lblIntroTitle";
+        lblIntroTitle.Text = "What does Copy do?";
+        //
+        // lblIntro
+        //
+        lblIntro.AutoSize = true;
+        lblIntro.Margin = new Padding(3, 6, 3, 3);
+        lblIntro.MaximumSize = new Size(800, 0);
+        lblIntro.Name = "lblIntro";
+        lblIntro.Text =
+            "It makes ONE clean collection of all your files on a backup disk you choose, using what was found when you catalogued your disks.\n\n" +
+            "•  Your source disks (the ones you catalogued) are only READ. Nothing on them is moved, changed or deleted.\n" +
+            "•  Every unique file is copied once, sorted into Photos, Videos, Audio, Documents, Archives and Other. Inside those, the original folder names are kept.\n" +
+            "•  Files that are exactly the same as one already copied go to the folder _Duplicates (only if there is room left). " +
+            "Same name and folder but different content: the newest goes to the main folders, older ones to _OlderVersions. Nothing is thrown away.\n" +
+            "•  Files that are already on the backup disk are skipped. Nothing on the backup disk is overwritten.\n" +
+            "•  You can stop at any time. Starting again continues where it stopped.";
+        //
+        // lblIntroExample
+        //
+        lblIntroExample.AutoSize = true;
+        lblIntroExample.Margin = new Padding(3, 8, 3, 3);
+        lblIntroExample.MaximumSize = new Size(800, 0);
+        lblIntroExample.Name = "lblIntroExample";
+        lblIntroExample.Text =
+            "Example:   F:\\Documenten\\muziek\\song.mp3   →   H:\\Audio\\Documenten\\muziek\\song.mp3   (H: = your backup disk)";
+        //
+        // lblIntroDeep
+        //
+        lblIntroDeep.AutoSize = true;
+        lblIntroDeep.Margin = new Padding(3, 8, 3, 3);
+        lblIntroDeep.MaximumSize = new Size(800, 0);
+        lblIntroDeep.Name = "lblIntroDeep";
+        lblIntroDeep.Text =
+            "Copy only handles files you can already see on your disks. Getting back DELETED files from a damaged or formatted disk is " +
+            "\"Deep recovery\" (coming next; for now the old PowerShell toolkit does it).";
         //
         // lblStep1
         //
         lblStep1.AutoSize = true;
         lblStep1.Margin = new Padding(3, 8, 3, 2);
         lblStep1.Name = "lblStep1";
-        lblStep1.Text = "1   Where should the copy go?";
+        lblStep1.Text = "Step 1  —  Choose your backup disk";
         //
         // lblStep1Hint
         //
         lblStep1Hint.AutoSize = true;
         lblStep1Hint.MaximumSize = new Size(820, 0);
         lblStep1Hint.Name = "lblStep1Hint";
-        lblStep1Hint.Text = "Pick a drive or type/paste a folder path, then Add: the main disk first, then overflow disks. Files go to the first disk with room. " +
+        lblStep1Hint.Text = "Pick the backup disk in the list on the right (or type/paste a folder path) and press Add. " +
+            "If one disk is too small, add a second one: it is used when the first is full. Best is an empty disk. " +
             "On the Windows drive (C:) only a subfolder can be used, and at least 20 GB stays free.";
         //
         // panelDest
@@ -261,7 +334,7 @@ partial class CopyView
         lblReserve.AutoSize = true;
         lblReserve.Margin = new Padding(3, 8, 3, 0);
         lblReserve.Name = "lblReserve";
-        lblReserve.Text = "Keep free on every destination (GB):";
+        lblReserve.Text = "Keep free on every backup disk (GB):";
         //
         // numReserve
         //
@@ -275,7 +348,7 @@ partial class CopyView
         lblCap.AutoSize = true;
         lblCap.Margin = new Padding(16, 8, 3, 0);
         lblCap.Name = "lblCap";
-        lblCap.Text = "Use at most on the selected destination (GB, 0 = no limit):";
+        lblCap.Text = "Use at most on the selected backup disk (GB, 0 = no limit):";
         //
         // numCap
         //
@@ -288,7 +361,14 @@ partial class CopyView
         lblStep2.AutoSize = true;
         lblStep2.Margin = new Padding(3, 18, 3, 2);
         lblStep2.Name = "lblStep2";
-        lblStep2.Text = "2   Check the plan (nothing is written yet)";
+        lblStep2.Text = "Step 2  —  Preview (nothing is written yet)";
+        //
+        // lblStep2Hint
+        //
+        lblStep2Hint.AutoSize = true;
+        lblStep2Hint.MaximumSize = new Size(820, 0);
+        lblStep2Hint.Name = "lblStep2Hint";
+        lblStep2Hint.Text = "Press \"Check the plan\": it shows how much will be copied, whether it fits, and where it goes. Nothing is written. You can do this as often as you like.";
         //
         // panelPlanButtons
         //
@@ -399,14 +479,14 @@ partial class CopyView
         lblStep3.AutoSize = true;
         lblStep3.Margin = new Padding(3, 18, 3, 2);
         lblStep3.Name = "lblStep3";
-        lblStep3.Text = "3   Copy";
+        lblStep3.Text = "Step 3  —  Start copying";
         //
         // lblSafe
         //
         lblSafe.AutoSize = true;
         lblSafe.MaximumSize = new Size(820, 0);
         lblSafe.Name = "lblSafe";
-        lblSafe.Text = "Your source disks are only read. Nothing on a destination is overwritten. Stop any time: starting again continues where it stopped.";
+        lblSafe.Text = "Your source disks are only read. Nothing on the backup disk is overwritten. Stop any time: starting again continues where it stopped.";
         //
         // panelStart
         //
@@ -465,11 +545,15 @@ partial class CopyView
         //
         AutoScaleDimensions = new SizeF(8F, 20F);
         AutoScaleMode = AutoScaleMode.Font;
-        Controls.Add(layout);
+        Controls.Add(scroll);
         Name = "CopyView";
         Size = new Size(900, 900);
+        panelIntro.ResumeLayout(false);
+        panelIntro.PerformLayout();
         layout.ResumeLayout(false);
         layout.PerformLayout();
+        scroll.ResumeLayout(false);
+        scroll.PerformLayout();
         panelDest.ResumeLayout(false);
         panelDest.PerformLayout();
         panelDestButtons.ResumeLayout(false);
@@ -496,7 +580,14 @@ partial class CopyView
 
     #endregion
 
+    private Panel scroll;
     private TableLayoutPanel layout;
+    private FlowLayoutPanel panelIntro;
+    private Label lblIntroTitle;
+    private Label lblIntro;
+    private Label lblIntroExample;
+    private Label lblIntroDeep;
+    private Label lblStep2Hint;
     private Label lblStep1;
     private Label lblStep1Hint;
     private FlowLayoutPanel panelDest;

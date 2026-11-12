@@ -321,3 +321,35 @@ public class UnplugTests
         Assert.Contains(log.Lines, l => l.StartsWith("WARN") && l.Contains("Windows drive") && l.Contains("DELETED"));
     }
 }
+
+/// <summary>The independent check of duplicates (SHA-256 re-read) must confirm real ones and catch stale ones.</summary>
+public class DuplicateCheckTests
+{
+    [Fact]
+    public void Real_duplicates_are_confirmed_and_a_copy_changed_after_the_scan_is_caught()
+    {
+        using var d = new TempDir();
+        var a = TestHost.Random(200_000, 1);
+        d.File(@"src\x\one.bin", a);
+        d.File(@"src\y\one copy.bin", a);
+        var b = TestHost.Random(150_000, 2);
+        d.File(@"src\x\two.bin", b);
+        var changed = d.File(@"src\y\two copy.bin", b);
+        using var sp = TestHost.Create(d.Path, new ListLog());
+        var scan = sp.GetRequiredService<ScanService>().Scan(new ScanRequest(Path.Combine(d.Path, "src"), []), null, CancellationToken.None);
+        sp.GetRequiredService<FingerprintService>().Run(new FingerprintOptions(), null, CancellationToken.None, new HashSet<long> { scan.DiskId });
+        var check = sp.GetRequiredService<DuplicateCheckService>();
+
+        var all = check.CheckSample(10, null, CancellationToken.None);
+        Assert.Equal(2, all.Groups.Count);
+        Assert.Equal(2, all.Identical);
+        Assert.Equal(0, all.Different);
+
+        var tampered = (byte[])b.Clone();
+        tampered[75_000] ^= 0xFF;                               // same size, different content, catalog not updated
+        File.WriteAllBytes(changed, tampered);
+        var again = check.CheckSample(10, null, CancellationToken.None);
+        Assert.Equal(1, again.Identical);
+        Assert.Equal(1, again.Different);
+    }
+}

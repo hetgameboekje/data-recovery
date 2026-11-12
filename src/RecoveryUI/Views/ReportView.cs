@@ -1,4 +1,4 @@
-using RecoveryUI.Infrastructure;
+﻿using RecoveryUI.Infrastructure;
 using RecoveryUI.ViewModels;
 
 namespace RecoveryUI.Views;
@@ -9,6 +9,7 @@ public partial class ReportView : UserControl, IReportView
     public event EventHandler? RefreshRequested;
     public event EventHandler? HashPendingRequested;
     public event EventHandler<int>? DuplicateGroupsRequested;
+    public event EventHandler? CheckDuplicatesRequested;
     public Control Control => this;
     bool expert;
 
@@ -20,6 +21,9 @@ public partial class ReportView : UserControl, IReportView
         UiTheme.Secondary(btnRefresh);
         UiTheme.Primary(btnHashPending);
         UiTheme.Secondary(btnGroups);
+        UiTheme.Secondary(btnCheckDuplicates);
+        new ToolTip().SetToolTip(btnCheckDuplicates, "Re-read every copy of 20 random duplicate groups and compare them byte for byte (SHA-256). Read-only.");
+        btnCheckDuplicates.Click += (_, _) => CheckDuplicatesRequested?.Invoke(this, EventArgs.Empty);
         lblNeeded.Font = UiTheme.HeadingFont;
         lblPending.ForeColor = UiTheme.Muted;
         tileUnique.ValueColor = UiTheme.Good;
