@@ -48,6 +48,7 @@ static class Program
             .AddSingleton<IDisksView, DisksView>()
             .AddSingleton<IScanView, ScanView>()
             .AddSingleton<IReportView, ReportView>()
+            .AddSingleton<IDiskMapView, DiskMapView>()
             .AddSingleton<ICopyView, CopyView>()
             .AddSingleton<ISettingsView, SettingsView>()
             // controllers
@@ -55,6 +56,7 @@ static class Program
             .AddSingleton<DisksController>()
             .AddSingleton<ScanController>()
             .AddSingleton<ReportController>()
+            .AddSingleton<DiskMapController>()
             .AddSingleton<CopyController>()
             .AddSingleton<SettingsController>()
             .AddSingleton<MainController>()

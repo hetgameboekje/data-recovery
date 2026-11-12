@@ -14,6 +14,10 @@ public sealed class RecoveryDictionaries
     public IReadOnlyDictionary<BusType, BusTypeInfo> BusTypes { get; init; } = new Dictionary<BusType, BusTypeInfo>();
     public JunkRules Junk { get; init; } = new();
     public string DefaultCategory { get; init; } = "Other";
+    /// <summary>Categories in file order, the default category last.</summary>
+    public IReadOnlyList<string> CategoryOrder { get; init; } = [];
+    /// <summary>Optional display colour per category ("#RRGGBB", the <c>color</c> attribute); used by the disk map.</summary>
+    public IReadOnlyDictionary<string, string> CategoryColors { get; init; } = new Dictionary<string, string>();
 
     public string CategoryOf(string ext) => CategoryByExtension.TryGetValue(ext, out var c) ? c : DefaultCategory;
 }

@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using RecoveryBLL;
 using RecoveryBLL.Models;
 using RecoveryUI.Infrastructure;
@@ -7,7 +7,7 @@ namespace RecoveryUI.ViewModels;
 
 // ViewModels: what a view shows, already formatted. Built by controllers from BLL models.
 
-public enum Page { Home, Disks, Scan, Report, Copy, Settings }
+public enum Page { Home, Disks, Scan, Report, DiskMap, Copy, Settings }
 
 public sealed class DriveRowViewModel
 {
@@ -193,4 +193,43 @@ public sealed class CopyPlanViewModel
     public required string Deletions { get; init; }
     public bool HasDeletions { get; init; }
     public bool CanStart { get; init; }
+}
+
+// ---- Phase 2b: disk map
+
+/// <summary>One entry of "Show:": a disk, or null for all disks together.</summary>
+public sealed record MapScopeViewModel(long? DiskId, string Text)
+{
+    public override string ToString() => Text;
+}
+
+public sealed class MapLegendViewModel
+{
+    public required string Name { get; init; }
+    public required Color Color { get; init; }
+    public required string Size { get; init; }
+}
+
+public sealed class ExtensionRowViewModel
+{
+    [Browsable(false)] public required string Ext { get; init; }
+    [DisplayName("Extension")] public required string Extension { get; init; }
+    [DisplayName("Type")] public required string Type { get; init; }
+    [DisplayName("Size"), Numeric] public required string Size { get; init; }
+    [DisplayName("Share"), Numeric] public required string Share { get; init; }
+    [DisplayName("Files"), Numeric] public required string Files { get; init; }
+    [DisplayName("Extra copies"), Numeric] public required string Extra { get; init; }
+}
+
+public sealed class DiskMapViewModel
+{
+    public required MapNode Root { get; init; }
+    /// <summary>Colour per category index (<see cref="MapNode.Category"/>).</summary>
+    public required Color[] Colors { get; init; }
+    public required IReadOnlyList<string> CategoryNames { get; init; }
+    public required string Summary { get; init; }
+    public required IReadOnlyList<MapLegendViewModel> Legend { get; init; }
+    public required IReadOnlyList<ExtensionRowViewModel> Extensions { get; init; }
+    /// <summary>Full path of a block, with the drive letter it has now (or had last time).</summary>
+    public required Func<MapNode, string> PathOf { get; init; }
 }

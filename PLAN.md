@@ -387,6 +387,16 @@ Each file gets one of four labels:
 Resume safety stays the same: `.rtpart` files, a journal, and pausing when everything is full.
 
 ### Phase 2b: Disk map (WinDirStat-style overview)
+> **Built 2026-11-12** as the "Disk map" page in the desktop app (between Report and Copy).
+> - **BLL:** `DiskMapService` builds a `MapNode` tree (disk → folders → files) from `IReportRepository.ReadMapFiles`, a streamed query that uses the same classification as the report. Each file is unique, kept (the counted copy of a duplicate group), extra copy, or pending. `TreemapLayout` is a pure squarified layout with cushion coefficients and hit testing.
+> - **Big catalogs:** files smaller than 1/250,000 of the map are merged into one "N small files" block per folder, and blocks under 2 px are not split further. The folder tree fills in only when a folder is expanded (at most 300 children; the rest stay on the map).
+> - **Drawing:** `TreemapControl` draws cushion shading per pixel into a bitmap (light from the top left), stripes for extra copies, a dotted edge for pending, grey for everything except a highlighted extension, and an outline for the selection. It is laid out again 150 ms after a resize.
+> - **Page:** "Show:" (all disks together, or one disk); a summary sentence; a legend with sizes (names always written, so colour is never the only cue); "Showing: …" with Zoom out; hover text (path, size, type, copy state, date). Double-click zooms in. Right-click offers **Show in Explorer** (only when the disk is plugged in and the file still exists), Copy path, and Zoom in/out. Expert mode adds the folder tree and the extension list, linked both ways with the map, and Save as PNG.
+> - **Colours:** a `color` attribute per `<category>` and `defaultColor` on the dictionary in `dictionaries.xml`, validated as `#RRGGBB`.
+> - The map is rebuilt after a scan or copy finishes (marked stale), or with Refresh.
+> - **Tests:** layout areas are proportional with no overlap and near-square blocks; folders too small to split stay one block; hit testing works; the map from a real scan has the right sizes, types, colours, extra copies and extensions (SQLite and SQL Server); tiny files are merged.
+> - **Checked on a snapshot of the real catalog** (F: + G:, 129,854 non-empty files, 502.72 GB): the map was ready within the 12 s the screenshot script waited (not timed more precisely). 113.79 GB are extra copies; videos take 394 GB, of which 71.9 GB are extra copies. The biggest striped area is `G:\From_E\MediaRecovery\_Duplicates` (the old toolkit's duplicates folder): 13,902 files, 100.8 GB, all of it extra copies (checked with SQL on the snapshot).
+> - **Not built yet:** overlays for junk and previews (they need Phase 3/3b).
 A visual answer to "what takes the space?", in the same spirit as [WinDirStat](https://github.com/windirstat/windirstat). It's our own implementation: WinDirStat is GPL-3.0, so its code can't be copied into this MIT project; only the idea is reused.
 
 - **Layout:** a new "Disk map" page with three linked parts:
@@ -633,13 +643,12 @@ Already available in this setup: `code-review`, `code-simplifier`, `engineering`
 - Choose the preview size threshold (default: longest side ≤ 640 px; now editable in `dictionaries.xml`), and whether orphan previews are upscaled automatically or only on request.
 - Confirm which disk is the "controller" (reference) disk for the catalog.
 - **Override folder (Phase 9):** confirm that it means "files that are safe elsewhere or not worth keeping, which may be cleared first when space runs out" (uploaded, duplicates, unrecoverable).
-- Disk map (Phase 2b): keep the order (after Phase 2) or build it earlier as a quick visual check of the catalog?
 - Bad-sector map (Phase 5b): block size default (≈1,024 blocks per disk, or a fixed size such as 256 MB?), and the colour thresholds for "slow" and "very slow" (proposal: > 50 ms and > 300 ms per 1 MB read on an HDD).
 - Test the WSL ext4 mount on a real Linux disk, as administrator (also: kill the run while mounted, then check the automatic unmount at the next start).
 - ~~Risk review items: catalog on a source disk, keep the PC awake, unplugging, two-step deletion~~: built (3.6–3.8).
 - Real-hardware checks (3.7 open item 6): pull a USB source and a destination during `copy` and plug them into another port; put `catalog.db` on a USB disk and try to scan that disk (must be refused).
 - ~~Build Phase 2 (copy plan + dry-run report)~~: done in the CLI and the desktop app ("Copy" page).
-- Next to build: Phase 2b (disk map), unless Phase 3 (junk detection) is wanted first. Section 9 still asks whether the disk map should come earlier.
+- ~~Next to build: Phase 2b (disk map)~~: built. Next: Phase 3 (junk detection), which also gives the disk map its junk overlay.
 - **Duplicate check (built 2026-11-12, first real data).** Asked: "check whether the duplicates really are duplicates; there is no way to check this."
   - Built `DuplicateCheckService`: it re-reads every copy of N random duplicate groups with SHA-256 (independent of the catalog's xxHash128) and reports identical / different / not checked. Report page: "Check duplicates"; CLI: `rtcatalog verify [--top N]`.
   - **Real catalog** (F: "Folders" + G:, 141,525 files, 10,625 duplicate groups): **16 of 16 sampled groups were identical.** That covers big videos, photos, music in both `F:\Documenten\folders\muziek` and `G:\Audio`, and tiny files.

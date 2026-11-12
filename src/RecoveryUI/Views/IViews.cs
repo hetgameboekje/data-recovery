@@ -78,6 +78,18 @@ public interface ISettingsView : IPageView
     string? PickCatalogFile();
 }
 
+/// <summary>Phase 2b: WinDirStat-style map of what takes the space, from the catalog only (read-only).</summary>
+public interface IDiskMapView : IPageView
+{
+    event EventHandler? RefreshRequested;
+    event EventHandler<long?>? ScopeChanged;
+    event EventHandler<RecoveryBLL.Models.MapNode>? OpenInExplorerRequested;
+    void ShowScopes(IReadOnlyList<MapScopeViewModel> scopes, long? selected);
+    void ShowLoading(string text);
+    void ShowMap(DiskMapViewModel map);
+    void ShowError(string text);
+}
+
 /// <summary>Phase 2: choose destinations, check the plan (dry run), copy. Deletions need both steps (review + final dialog).</summary>
 public interface ICopyView : IPageView
 {

@@ -30,6 +30,7 @@ partial class MainForm
         btnReport = new Button();
         btnSettings = new Button();
         lblComing = new Label();
+        btnDiskMap = new Button();
         btnCopy = new Button();
         btnFutureJunk = new Button();
         btnFutureCorrupt = new Button();
@@ -113,6 +114,7 @@ partial class MainForm
         panelNav.Controls.Add(btnDisks);
         panelNav.Controls.Add(btnScan);
         panelNav.Controls.Add(btnReport);
+        panelNav.Controls.Add(btnDiskMap);
         panelNav.Controls.Add(btnCopy);
         panelNav.Controls.Add(btnSettings);
         panelNav.Controls.Add(lblComing);
@@ -170,6 +172,12 @@ partial class MainForm
         lblComing.Name = "lblComing";
         lblComing.Size = new Size(190, 20);
         lblComing.Text = "COMING NEXT";
+        //
+        // btnDiskMap
+        //
+        btnDiskMap.Name = "btnDiskMap";
+        btnDiskMap.Size = new Size(194, 38);
+        btnDiskMap.Text = "   Disk map";
         //
         // btnCopy
         //
@@ -299,6 +307,7 @@ partial class MainForm
     private Button btnReport;
     private Button btnSettings;
     private Label lblComing;
+    private Button btnDiskMap;
     private Button btnCopy;
     private Button btnFutureJunk;
     private Button btnFutureCorrupt;

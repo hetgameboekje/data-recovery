@@ -145,4 +145,20 @@ public sealed class SqliteReportRepository(SqliteDb db) : IReportRepository
         }
         return groups;
     }, "Cannot sample duplicate groups");
+
+    public void ReadMapFiles(long? diskId, Action<MapFileDto> row, CancellationToken ct) => db.Run(c =>
+    {
+        using var cmd = Cmd(c, Classified + """
+            SELECT k.disk_id, f.path, k.size, f.mtime, k.media_type, f.ext,
+                   CASE WHEN k.kind = 'pending' THEN 3 WHEN k.kind = 'dup' AND k.rn > 1 THEN 2 WHEN k.kind = 'dup' THEN 1 ELSE 0 END
+            FROM k JOIN files f ON f.id = k.id
+            """ + (diskId == null ? "" : " WHERE k.disk_id = $d"), null, ("$d", diskId));
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            ct.ThrowIfCancellationRequested();
+            row(new MapFileDto(r.GetInt64(0), r.GetString(1), r.GetInt64(2), r.GetInt64(3),
+                r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetString(5), (MapFileState)r.GetInt32(6)));
+        }
+    }, "Cannot read the files for the disk map");
 }

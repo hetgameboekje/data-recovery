@@ -1,4 +1,4 @@
-using System.Xml;
+﻿using System.Xml;
 using RecoveryBLL.Exceptions;
 using RecoveryBLL.Interfaces;
 using RecoveryBLL.Models;
@@ -26,9 +26,18 @@ public sealed class XmlDictionaryRepository(string path) : IDictionaryRepository
         // categories: <category name="Photos"><extension>jpg</extension>...</category>
         var categories = Dict("categories");
         var byExt = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var order = new List<string>();
+        var colors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (XmlElement cat in categories.SelectNodes("category")!)
         {
             var name = Required(cat, "name");
+            order.Add(name);
+            if (cat.GetAttribute("color") is { Length: > 0 } color)
+            {
+                if (!System.Text.RegularExpressions.Regex.IsMatch(color, "^#[0-9A-Fa-f]{6}$"))
+                    throw new ConfigurationException($"Category '{name}': color must look like #1F77B4, not '{color}'");
+                colors[name] = color;
+            }
             foreach (XmlElement e in cat.SelectNodes("extension")!)
             {
                 var ext = e.InnerText.Trim().TrimStart('.').ToLowerInvariant();
@@ -56,6 +65,8 @@ public sealed class XmlDictionaryRepository(string path) : IDictionaryRepository
         {
             DefaultCategory = categories.GetAttribute("default") is { Length: > 0 } def ? def : "Other",
             CategoryByExtension = byExt,
+            CategoryOrder = DefaultLast(order, categories.GetAttribute("default") is { Length: > 0 } d2 ? d2 : "Other"),
+            CategoryColors = AddDefaultColor(colors, categories),
             SkipFolders = Items("skipFolders", StringComparer.OrdinalIgnoreCase),
             SkipRootFiles = Items("skipRootFiles", StringComparer.OrdinalIgnoreCase),
             PartialFileExtensions = Items("partialFileExtensions", StringComparer.OrdinalIgnoreCase, lower: true),
@@ -94,6 +105,26 @@ public sealed class XmlDictionaryRepository(string path) : IDictionaryRepository
             throw new ConfigurationException($"Invalid XML at line {ex.LineNumber}: {ex.Message}", ex);
         }
         return doc;
+    }
+
+    static IReadOnlyList<string> DefaultLast(List<string> order, string defaultCategory)
+    {
+        order.RemoveAll(n => string.Equals(n, defaultCategory, StringComparison.OrdinalIgnoreCase));
+        order.Add(defaultCategory);
+        return order;
+    }
+
+    /// <summary>The default category ("Other") has no &lt;category&gt; element, so its colour is an attribute on the dictionary.</summary>
+    static IReadOnlyDictionary<string, string> AddDefaultColor(Dictionary<string, string> colors, XmlElement categories)
+    {
+        var name = categories.GetAttribute("default") is { Length: > 0 } d ? d : "Other";
+        if (categories.GetAttribute("defaultColor") is { Length: > 0 } c)
+        {
+            if (!System.Text.RegularExpressions.Regex.IsMatch(c, "^#[0-9A-Fa-f]{6}$"))
+                throw new ConfigurationException($"defaultColor must look like #1F77B4, not '{c}'");
+            colors[name] = c;
+        }
+        return colors;
     }
 
     static string Required(XmlElement e, string attribute) =>

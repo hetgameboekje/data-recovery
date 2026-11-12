@@ -48,6 +48,12 @@ public interface IReportRepository
     IReadOnlyList<DuplicateGroupDto> GetLargestDuplicateGroups(int top);
     /// <summary>A random sample of duplicate groups whose file size is at most <paramref name="maxSize"/>, with every copy.</summary>
     IReadOnlyList<DuplicateGroupDto> GetDuplicateGroupSample(int count, long maxSize);
+
+    /// <summary>
+    /// Phase 2b: every present, non-empty file of one disk (or of all disks when null), classified like the report.
+    /// Streamed row by row, so a big catalog is never held twice in memory.
+    /// </summary>
+    void ReadMapFiles(long? diskId, Action<MapFileDto> row, CancellationToken ct);
 }
 
 /// <summary>Reading a whole catalog (merge source) and merging records into one (merge target).</summary>

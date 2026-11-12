@@ -22,7 +22,7 @@ public partial class MainForm : Form, IMainView
         navButtons = new()
         {
             [Page.Home] = btnHome, [Page.Disks] = btnDisks, [Page.Scan] = btnScan,
-            [Page.Report] = btnReport, [Page.Copy] = btnCopy, [Page.Settings] = btnSettings,
+            [Page.Report] = btnReport, [Page.DiskMap] = btnDiskMap, [Page.Copy] = btnCopy, [Page.Settings] = btnSettings,
         };
         ApplyTheme();
         foreach (var (page, button) in navButtons)

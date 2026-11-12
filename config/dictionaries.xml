@@ -8,8 +8,9 @@
 <dictionaries version="1">
 
   <!-- File type per extension. Same lists as the PowerShell RecoveryToolkit, so both sort files identically. -->
-  <dictionary name="categories" default="Other">
-    <category name="Photos">
+  <!-- color = the block colour on the disk map ("#RRGGBB"); defaultColor is for the default category. -->
+  <dictionary name="categories" default="Other" defaultColor="#8C8C8C">
+    <category name="Photos" color="#3B82C4">
       <extension>jpg</extension><extension>jpeg</extension><extension>jpe</extension><extension>jfif</extension>
       <extension>png</extension><extension>gif</extension><extension>bmp</extension><extension>tif</extension>
       <extension>tiff</extension><extension>heic</extension><extension>heif</extension><extension>webp</extension>
@@ -19,27 +20,27 @@
       <extension>sr2</extension><extension>orf</extension><extension>raf</extension><extension>rw2</extension>
       <extension>dng</extension><extension>pef</extension><extension>srw</extension><extension>x3f</extension>
     </category>
-    <category name="Videos">
+    <category name="Videos" color="#D9534F">
       <extension>mp4</extension><extension>m4v</extension><extension>mov</extension><extension>3gp</extension>
       <extension>3g2</extension><extension>avi</extension><extension>mkv</extension><extension>mpg</extension>
       <extension>mpeg</extension><extension>mts</extension><extension>m2ts</extension><extension>ts</extension>
       <extension>wmv</extension><extension>asf</extension><extension>flv</extension><extension>webm</extension>
       <extension>vob</extension><extension>ogv</extension><extension>divx</extension>
     </category>
-    <category name="Audio">
+    <category name="Audio" color="#3FA34D">
       <extension>mp3</extension><extension>wav</extension><extension>flac</extension><extension>ogg</extension>
       <extension>oga</extension><extension>opus</extension><extension>m4a</extension><extension>aac</extension>
       <extension>wma</extension><extension>aiff</extension><extension>aif</extension><extension>amr</extension>
       <extension>mid</extension><extension>midi</extension><extension>ape</extension>
     </category>
-    <category name="Documents">
+    <category name="Documents" color="#E0A800">
       <extension>pdf</extension><extension>doc</extension><extension>docx</extension><extension>docm</extension>
       <extension>xls</extension><extension>xlsx</extension><extension>xlsm</extension><extension>ppt</extension>
       <extension>pptx</extension><extension>odt</extension><extension>ods</extension><extension>odp</extension>
       <extension>rtf</extension><extension>txt</extension><extension>csv</extension><extension>md</extension>
       <extension>epub</extension><extension>pages</extension><extension>numbers</extension><extension>key</extension>
     </category>
-    <category name="Archives">
+    <category name="Archives" color="#8E5CC4">
       <extension>zip</extension><extension>rar</extension><extension>7z</extension><extension>tar</extension>
       <extension>gz</extension><extension>tgz</extension><extension>bz2</extension><extension>xz</extension>
       <extension>iso</extension>

@@ -115,3 +115,10 @@ public sealed record PlanFileDto(long Id, long DiskId, string Path, long Size, l
 /// <summary>A file that was copied: the destination row is created from the source row plus these hashes.</summary>
 /// <remarks><see cref="DestMtimeTicks"/> is the time as the destination stores it (FAT/exFAT round it), so a later scan sees no change.</remarks>
 public sealed record CopyRecordDto(long SourceFileId, long DestDiskId, string DestPath, long DestMtimeTicks, byte[] QuickHash, byte[] FullHash, string Stamp);
+
+// ---- Phase 2b: disk map
+
+/// <summary>How a file shows on the disk map. Kept = the copy counted as "the" content of a duplicate group.</summary>
+public enum MapFileState : byte { Unique, Kept, ExtraCopy, Pending }
+
+public readonly record struct MapFileDto(long DiskId, string Path, long Size, long MtimeTicks, string? MediaType, string? Ext, MapFileState State);

@@ -19,6 +19,7 @@ public static class ServiceRegistration
         services.AddTransient<LinuxDiskService>();
         services.AddTransient<ConsolidationService>();
         services.AddTransient<DuplicateCheckService>();
+        services.AddTransient<DiskMapService>();
         services.AddSingleton<RunStateService>();
         services.AddSingleton<IDeletionConfirmer, RefuseAllDeletions>();   // frontends register their own (step 2 of every deletion)
         return services;

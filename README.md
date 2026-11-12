@@ -67,6 +67,8 @@ You can also press F5 in Visual Studio (start project **RecoveryUI**) or VS Code
 
    Stop any time; starting again continues where it stopped.
 
+**Disk map** (any time after cataloguing) shows what takes the space, like WinDirStat: every file is a block sized by its bytes and coloured by type. Striped blocks are extra copies of files kept elsewhere; a dotted edge means "not fingerprinted yet". Double-click to zoom into a folder; right-click to show a file in Explorer or copy its path. It is built from the catalog only, so it changes nothing and also works for unplugged disks. Expert mode adds the folder tree, the extension list (click one to highlight its files) and **Save as PNG**. Block colours are the `color` attributes in `config/dictionaries.xml`.
+
 Turn on **Expert mode** (top right) for disk numbers and bus types, more options, the CSV export, Linux (WSL) disks and the live log.
 
 ### Command line
