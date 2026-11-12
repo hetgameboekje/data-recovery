@@ -25,27 +25,34 @@ Dependencies point one way: `UI/CLI → BLL ← DAL`. The BLL never references S
 
 ```
 dotnet build data-recovery.slnx
-dotnet test  data-recovery.slnx
-dotnet publish src/RecoveryUI  -c Release -o publish     # single RecoveryToolkit.exe
-dotnet publish src/RecoveryCli -c Release -o publish     # single rtcatalog.exe
+dotnet test data-recovery.slnx
+dotnet publish src/RecoveryUI -c Release -o publish
+dotnet publish src/RecoveryCli -c Release -o publish
 ```
+
+The two `publish` lines create `publish\RecoveryToolkit.exe` and `publish\rtcatalog.exe`: single files that run without installing .NET.
 
 ## How to run it
 
-### First time
-Run these in PowerShell, in the repository folder:
+All commands below work in both **Command Prompt** and **PowerShell**. Run them in the repository folder.
 
-```powershell
-dotnet --version                 # must print 10.x; otherwise install the .NET 10 SDK
-Copy-Item .env.example .env      # optional: without it, the catalog is catalog.db in the current folder
+### First time
+
+```
+dotnet --version
+copy .env.example .env
 dotnet build data-recovery.slnx
 ```
+
+1. `dotnet --version` must print `10.x`. If it doesn't, install the .NET 10 SDK.
+2. `copy` creates your settings file. It's optional: without it, the catalog is `catalog.db` in the current folder.
+3. The build should end with "Build succeeded".
 
 **Where the catalog lives matters.** The toolkit writes its catalog, logs and journal while it works. Keep them on a disk you are **not** recovering from: either the Windows drive (the default) or your backup disk. Set this with `DB_CONNECTION` / `LOG_DIR` in `.env`, or `--db` on the command line. Scanning the disk that holds the catalog is refused, because writing there could overwrite deleted files.
 
 ### Desktop app (recommended)
 
-```powershell
+```
 dotnet run --project src/RecoveryUI
 ```
 
@@ -64,19 +71,28 @@ Turn on **Expert mode** (top right) for disk numbers and bus types, more options
 
 ### Command line
 
-```powershell
-dotnet run --project src/RecoveryCli -- <command> [options]     # or: rtcatalog.exe <command> after publishing
+Publish the command-line tool once:
+
 ```
+dotnet publish src/RecoveryCli -c Release -o publish
+```
+
+After that, `publish\rtcatalog` runs it. (Without publishing, `dotnet run --project src/RecoveryCli -- <command>` does the same, but slower.)
 
 A typical run, with source disks F: and G: and backup disks H: (main) and I: (overflow):
 
-```powershell
-rtcatalog scan F:\                      # catalog and fingerprint a source disk (read-only); repeat per disk
-rtcatalog scan G:\
-rtcatalog report --top 20               # what is unique, what is duplicated
-rtcatalog plan H:\ I:\ --csv plan.csv   # dry run: what goes where, does it fit? (writes nothing)
-rtcatalog copy H:\ I:\                  # copy; Ctrl+C stops, running it again continues
 ```
+publish\rtcatalog scan F:\
+publish\rtcatalog scan G:\
+publish\rtcatalog report --top 20
+publish\rtcatalog plan H:\ I:\ --csv plan.csv
+publish\rtcatalog copy H:\ I:\
+```
+
+1. `scan` catalogs and fingerprints one source disk. It only reads the disk. Repeat it for every source disk.
+2. `report` shows what is unique and what is duplicated.
+3. `plan` is a dry run: what goes where, and whether it fits. It writes nothing; `plan.csv` lists every file.
+4. `copy` does the copy. Ctrl+C stops it; running the same command again continues where it stopped.
 
 `rtcatalog --help` lists every command and option. The full list is under [Command line](#command-line-rtcatalog) below.
 
