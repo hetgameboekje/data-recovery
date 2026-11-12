@@ -423,6 +423,34 @@ A visual answer to "what takes the space?", in the same spirit as [WinDirStat](h
 - **Order:** after Phase 2, because the copy plan comes first. It can start any time after Phase 1b, since it only needs the catalog.
 
 ### Phase 3: Junk detection (moved to `_Review\Junk`, never deleted)
+> **Built 2026-11-12.** Two changes from the first idea, both based on the real catalog:
+> 1. **Nothing is moved on the source disks** (they stay read-only). The rules only decide where **Copy** puts a file: junk goes to `_Review\<reason>\<disk>\<path>` on the backup disk, after your own files and only into space that is left (`--junk skip` leaves it out; `off` switches detection off).
+> 2. **Keep-together folders were added.** F: holds two backups of a Minecraft server (52.4 GB, 87,831 files: world `.mca` regions, mods `.jar`, 77,000 BlueMap tiles), a Postgres `postgres-data` folder and three Battle.net installs. Sorting these by file type would have scattered textures into Photos and jars into Other, and removing duplicates inside them would have broken the second backup. They are now copied **whole**, in their own structure and without deduplication:
+>    - to `Apps and data\<disk>\<path>` when worth keeping (Minecraft, Database, Code project);
+>    - to `_Review\<name>\…` when reinstallable (Programs = a folder with an .exe and 3+ .dll files, Games = steamapps, App data, Program Files).
+>
+>    A marker in a disk root is ignored, so a whole disk never becomes one folder. The outermost match wins.
+>
+> - **Code:**
+>   - `FileTagger` holds the pure rules;
+>   - `JunkService` runs them on the catalog, read with `IReportRepository.ReadFileFacts` (path, extension, size, type, width/height, camera yes/no), on SQLite and SQL Server;
+>   - `ConsolidationPlanner` has the new actions `KeepTogether`, `Review` and `SkippedReview`. Of identical copies, a non-junk copy is preferred as the keeper, and junk extra copies are not copied. The copy order is own files, then `_Review`, then `_Duplicates`.
+> - **Rules** (`dictionaries.xml`): `scrap` sizes per category, `junkFile`, `junkFolder`, `assetFolder`, and the new `keepTogether` dictionary (`marker` / `folder` / `program`, action `keep` or `review`). They are validated on load.
+> - **Junk order:**
+>   1. System files (`Thumbs.db`, `desktop.ini`…)
+>   2. Caches (`.thumbnails`, `cache2`, `INetCache`…)
+>   3. Scraps: video < 16 KB, audio < 4 KB, picture < 200 B
+>   4. Icons and skins: `.ico`; PNG 64×64/64×32; square 16–256 px PNG/GIF/BMP without camera data
+>   5. Thumbnails: known sizes without camera data
+>   6. Image sets: 200+ same-size images ≤ 256 px in one folder
+>
+>   Camera data always protects a photo, and so does a JPEG that happens to be square.
+> - **Real catalog result** (`rtcatalog junk`, about 3 s; F: + G:): 3,950 junk files (21.7 MB: 2,790 thumbnails, 716 icons and skins, 438 scraps including the 24-byte "mp4" files, 6 `desktop.ini`); 3 folders kept whole (52.7 GB); 3 reinstallable programs (859 MB).
+> - **Desktop app:**
+>   - The "Junk and apps" page (it replaces the greyed "Clean up junk"): three tiles; what was found, with where it goes; the folders kept whole; the 200 largest files per junk reason, with right-click Show in Explorer / Copy path. "Check again" reloads the rules. A shared `ExplorerLauncher` is now also used by the disk map.
+>   - The Copy page: a "Junk and programs" tile, a junk option (Expert), and two new lines in "What does Copy do?".
+> - **Tests:** rules (bundles, outermost wins, root marker ignored, programs, every junk reason, camera protection, switching off); copy (two identical server backups both copied whole, junk to `_Review`, junk extra copy skipped, rerun finds everything, junk only gets leftover space, skip/off).
+> - **Not built yet:** a junk/keep-together overlay on the disk map; per-folder "this is not junk" exceptions in the app (for now: edit the rules).
 - **Minecraft skins:** PNGs of exactly 64×64 or 64×32.
 - **Program icons and pictograms:** square images of 16/24/32/48/128/256 px, and `.ico` files.
 - **Game assets:** source paths with `.minecraft`, `resourcepacks`, `steamapps`, `AppData`, `Program Files`, or folders with hundreds of tiny same-size images.
@@ -648,7 +676,14 @@ Already available in this setup: `code-review`, `code-simplifier`, `engineering`
 - ~~Risk review items: catalog on a source disk, keep the PC awake, unplugging, two-step deletion~~: built (3.6–3.8).
 - Real-hardware checks (3.7 open item 6): pull a USB source and a destination during `copy` and plug them into another port; put `catalog.db` on a USB disk and try to scan that disk (must be refused).
 - ~~Build Phase 2 (copy plan + dry-run report)~~: done in the CLI and the desktop app ("Copy" page).
-- ~~Next to build: Phase 2b (disk map)~~: built. Next: Phase 3 (junk detection), which also gives the disk map its junk overlay.
+- ~~Next to build: Phase 2b (disk map)~~: built. ~~Phase 3 (junk detection)~~: built, with keep-together folders. Next: Phase 3b (low-quality previews: look-alike matching against full photos, optional upscaling), or the disk map overlay for junk.
+- **UI layout fixes (2026-11-12, user feedback: "table headers aren't aligned with their content; buttons appear off screen or near the edge").** Checked every page at the size the app really opens with (about 1200×800 on a 1920×1080 screen at 100 %), not only at 1280×1000:
+  - Number columns had right-aligned values under left-aligned headers. `GridBinder` now gives each header its column's alignment, in every table.
+  - Disks and Catalog pages showed an empty scrollbar. A docked, auto-scrolling TableLayoutPanel miscounts its height, and on Disks the hidden expert-only table kept its fixed 180 px row. Both pages now use the Copy page's pattern (a scrolling panel around an auto-sizing table), and the hidden row collapses to 0.
+  - Copy page: the content now stretches with the window. Step 1 is the drive box with Add and Add a folder on one row, then the list with Move up / Move down / Remove / Refresh beside it (before, a tall column of buttons ran off the bottom). "What does Copy do?" has a Hide/Show explanation link that is remembered (`UiPreferences`), so steps 1–3 fit on one screen.
+  - Junk and apps: the three lists are now tabs, so each gets the full height (at 800 px the lower two had shrunk to about one row).
+  - A blank table on Disks right after opening is just the drive details still loading (bus, model), not a bug.
+- Keep-together folders are copied without deduplication. The two Minecraft backups on F: share many identical files, so both copies take space (about 52 GB together). Confirm this is wanted, or whether only the newest backup should be kept whole and the older one go to `_Review`.
 - **Duplicate check (built 2026-11-12, first real data).** Asked: "check whether the duplicates really are duplicates; there is no way to check this."
   - Built `DuplicateCheckService`: it re-reads every copy of N random duplicate groups with SHA-256 (independent of the catalog's xxHash128) and reports identical / different / not checked. Report page: "Check duplicates"; CLI: `rtcatalog verify [--top N]`.
   - **Real catalog** (F: "Folders" + G:, 141,525 files, 10,625 duplicate groups): **16 of 16 sampled groups were identical.** That covers big videos, photos, music in both `F:\Documenten\folders\muziek` and `G:\Audio`, and tiny files.

@@ -17,6 +17,12 @@ public enum CopyAction
     SkippedDuplicate,
     /// <summary>Does not fit on any destination.</summary>
     NoRoom,
+    /// <summary>Part of a keep-together folder (a server, database, code...): copied whole to "Apps and data", never deduplicated.</summary>
+    KeepTogether,
+    /// <summary>Junk or a reinstallable folder: copied to _Review, after your own files and only into space that is left.</summary>
+    Review,
+    /// <summary>Junk or a reinstallable folder, and setting it aside is switched off: not copied (still on the source disk).</summary>
+    SkippedReview,
 }
 
 /// <summary>A destination drive or folder. <see cref="MaxBytes"/> caps what this run may write there.</summary>
@@ -29,7 +35,8 @@ public sealed record ConsolidateOptions(
     bool AllowPending = false,
     bool Verify = false,
     string? ApproveDeleteCode = null,
-    bool WaitForUnplugged = true)
+    bool WaitForUnplugged = true,
+    JunkHandling Junk = JunkHandling.SetAside)
 {
     /// <summary>How long a copy waits for an unplugged disk to come back before it skips that disk.</summary>
     public TimeSpan UnplugWait { get; init; } = TimeSpan.FromMinutes(30);
@@ -76,7 +83,8 @@ public sealed class PlanItem
     /// <summary>Relative to the destination volume root (prefix included).</summary>
     public string? DestPath { get; set; }
     public string? Note { get; set; }
-    public bool NeedsCopy => (Action is CopyAction.Keep or CopyAction.OlderVersion or CopyAction.Duplicate) && DestDiskId != null;
+    public bool NeedsCopy => (Action is CopyAction.Keep or CopyAction.OlderVersion or CopyAction.Duplicate or CopyAction.KeepTogether or CopyAction.Review)
+                             && DestDiskId != null;
 }
 
 /// <summary>A file in a destination's _Duplicates folder that will be deleted to make room for a unique file.</summary>
@@ -107,22 +115,29 @@ public sealed class CopyPlan
     public long BytesToCopy => Items.Where(i => i.NeedsCopy).Sum(i => i.Size);
     public long FilesToCopy => Items.Count(i => i.NeedsCopy);
     static bool IsDuplicateNoRoom(PlanItem i) => i.Action == CopyAction.NoRoom && i.Note == PlanNotes.DuplicateNoRoom;
-    /// <summary>All unique content (kept, older versions, and unique files that found no room).</summary>
-    public long UniqueBytes => Bytes(CopyAction.Keep) + Bytes(CopyAction.OlderVersion)
-                               + Items.Where(i => i.Action == CopyAction.NoRoom && !IsDuplicateNoRoom(i)).Sum(i => i.Size);
+    static bool IsReviewNoRoom(PlanItem i) => i.Action == CopyAction.NoRoom && i.Note == PlanNotes.ReviewNoRoom;
+    static bool IsUniqueNoRoom(PlanItem i) => i.Action == CopyAction.NoRoom && !IsDuplicateNoRoom(i) && !IsReviewNoRoom(i);
+    /// <summary>All unique content (kept, older versions, keep-together folders, and unique files that found no room).</summary>
+    public long UniqueBytes => Bytes(CopyAction.Keep) + Bytes(CopyAction.OlderVersion) + Bytes(CopyAction.KeepTogether)
+                               + Items.Where(IsUniqueNoRoom).Sum(i => i.Size);
     /// <summary>All identical extra copies, whether copied, switched off or out of room.</summary>
     public long DuplicateBytes => Bytes(CopyAction.Duplicate) + Bytes(CopyAction.SkippedDuplicate) + Items.Where(IsDuplicateNoRoom).Sum(i => i.Size);
-    public long UniqueNoRoomBytes => Items.Where(i => i.Action == CopyAction.NoRoom && !IsDuplicateNoRoom(i)).Sum(i => i.Size);
+    /// <summary>Junk and reinstallable folders, whether set aside, switched off or out of room.</summary>
+    public long ReviewBytes => Bytes(CopyAction.Review) + Bytes(CopyAction.SkippedReview) + Items.Where(IsReviewNoRoom).Sum(i => i.Size);
+    public long ReviewFiles => Files(CopyAction.Review) + Files(CopyAction.SkippedReview) + Items.Count(IsReviewNoRoom);
+    public long UniqueNoRoomBytes => Items.Where(IsUniqueNoRoom).Sum(i => i.Size);
     public long DuplicatesNoRoom => Items.Count(IsDuplicateNoRoom);
+    public long ReviewNoRoom => Items.Count(IsReviewNoRoom);
     public long UsableBytes => Destinations.Sum(d => d.UsableBytes);
 
-    /// <summary>Everything except duplicates fits.</summary>
-    public bool UniqueFits => !Items.Any(i => i.Action == CopyAction.NoRoom && i.Note != PlanNotes.DuplicateNoRoom);
+    /// <summary>Everything except duplicates and set-aside files fits.</summary>
+    public bool UniqueFits => !Items.Any(IsUniqueNoRoom);
 }
 
 public static class PlanNotes
 {
     public const string DuplicateNoRoom = "duplicate: no room left";
+    public const string ReviewNoRoom = "set aside: no room left";
 }
 
 public sealed record CopyResult(

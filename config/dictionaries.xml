@@ -125,11 +125,42 @@
     <thumbnailSize width="320" height="240"/>
     <thumbnailSize width="240" height="320"/>
     <thumbnailSize width="96" height="96"/>
-    <gameAssetPathKeyword>.minecraft</gameAssetPathKeyword>
-    <gameAssetPathKeyword>resourcepacks</gameAssetPathKeyword>
-    <gameAssetPathKeyword>steamapps</gameAssetPathKeyword>
-    <gameAssetPathKeyword>AppData</gameAssetPathKeyword>
-    <gameAssetPathKeyword>Program Files</gameAssetPathKeyword>
+    <!-- Smaller than this can't be a real picture/video/song: a recovery scrap (e.g. 24-byte "mp4" files). -->
+    <scrap category="Videos" below="16384"/>
+    <scrap category="Audio" below="4096"/>
+    <scrap category="Photos" below="200"/>
+    <!-- Always junk, matched by file name. -->
+    <junkFile>Thumbs.db</junkFile><junkFile>ehthumbs.db</junkFile><junkFile>desktop.ini</junkFile>
+    <junkFile>.DS_Store</junkFile><junkFile>IconCache.db</junkFile>
+    <!-- Files inside folders with these names are junk (thumbnail and cache folders). -->
+    <junkFolder>.thumbnails</junkFolder><junkFolder>.cache</junkFolder><junkFolder>cache2</junkFolder>
+    <junkFolder>thumbcache</junkFolder><junkFolder>Temporary Internet Files</junkFolder><junkFolder>INetCache</junkFolder>
+    <!-- A folder with this many small images of one size (no camera data) is an image set: game assets or thumbnails. -->
+    <assetFolder minImages="200" maxSide="256"/>
+  </dictionary>
+
+  <!--
+    Phase 3: folders that are copied WHOLE, in their own structure, without sorting by type or removing duplicates inside
+    them (a server, database or program only works when it is complete). The outermost match wins.
+      marker="name"   a file or folder with this name inside it; the folder that holds it is the bundle
+      folder="name"   a folder with this name is the bundle
+      program="true"  a folder with an .exe and at least 3 .dll files
+      action="keep"   copied with your files, to "Apps and data\<disk>\<path>"
+      action="review" put aside in "_Review\<name>\<disk>\<path>" (reinstallable; copied after your own files)
+    A marker in the root of a disk is ignored, so a whole disk never becomes one bundle.
+  -->
+  <dictionary name="keepTogether">
+    <bundle name="Minecraft" marker="server.properties" action="keep"/>
+    <bundle name="Minecraft" marker="level.dat" action="keep"/>
+    <bundle name="Minecraft" folder=".minecraft" action="keep"/>
+    <bundle name="Database" marker="PG_VERSION" action="keep"/>
+    <bundle name="Database" marker="ibdata1" action="keep"/>
+    <bundle name="Code project" marker=".git" action="keep"/>
+    <bundle name="Games" folder="steamapps" action="review"/>
+    <bundle name="Programs" folder="Program Files" action="review"/>
+    <bundle name="Programs" folder="Program Files (x86)" action="review"/>
+    <bundle name="App data" folder="AppData" action="review"/>
+    <bundle name="Programs" program="true" action="review"/>
   </dictionary>
 
 </dictionaries>

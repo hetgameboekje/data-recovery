@@ -14,6 +14,7 @@ partial class ScanView
 
     private void InitializeComponent()
     {
+        scroll = new Panel();
         layout = new TableLayoutPanel();
         lblStep1 = new Label();
         lstTargets = new CheckedListBox();
@@ -49,7 +50,8 @@ partial class ScanView
         //
         // layout
         //
-        layout.AutoScroll = true;
+        layout.AutoSize = true;
+        layout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         layout.ColumnCount = 1;
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
         layout.Controls.Add(lblStep1, 0, 0);
@@ -60,7 +62,7 @@ partial class ScanView
         layout.Controls.Add(lblSafe, 0, 5);
         layout.Controls.Add(panelStart, 0, 6);
         layout.Controls.Add(panelProgress, 0, 7);
-        layout.Dock = DockStyle.Fill;
+        layout.Dock = DockStyle.Top;
         layout.Name = "layout";
         layout.RowCount = 8;
         layout.RowStyles.Add(new RowStyle());
@@ -263,7 +265,11 @@ partial class ScanView
         //
         AutoScaleDimensions = new SizeF(7F, 17F);
         AutoScaleMode = AutoScaleMode.Font;
-        Controls.Add(layout);
+        scroll.AutoScroll = true;
+        scroll.Controls.Add(layout);
+        scroll.Dock = DockStyle.Fill;
+        scroll.Name = "scroll";
+        Controls.Add(scroll);
         Name = "ScanView";
         Size = new Size(940, 640);
         layout.ResumeLayout(false);
@@ -281,6 +287,7 @@ partial class ScanView
 
     #endregion
 
+    private Panel scroll;
     private TableLayoutPanel layout;
     private Label lblStep1;
     private CheckedListBox lstTargets;

@@ -161,4 +161,19 @@ public sealed class SqliteReportRepository(SqliteDb db) : IReportRepository
                 r.IsDBNull(4) ? null : r.GetString(4), r.IsDBNull(5) ? null : r.GetString(5), (MapFileState)r.GetInt32(6)));
         }
     }, "Cannot read the files for the disk map");
+
+    public void ReadFileFacts(Action<FileFactsDto> row, CancellationToken ct) => db.Run(c =>
+    {
+        using var cmd = Cmd(c, """
+            SELECT id, disk_id, path, ext, size, media_type, width, height, CASE WHEN camera IS NULL THEN 0 ELSE 1 END
+            FROM files WHERE missing = 0 AND size > 0
+            """);
+        using var r = cmd.ExecuteReader();
+        while (r.Read())
+        {
+            ct.ThrowIfCancellationRequested();
+            row(new FileFactsDto(r.GetInt64(0), r.GetInt64(1), r.GetString(2), r.IsDBNull(3) ? null : r.GetString(3), r.GetInt64(4),
+                r.IsDBNull(5) ? null : r.GetString(5), r.IsDBNull(6) ? null : r.GetInt32(6), r.IsDBNull(7) ? null : r.GetInt32(7), r.GetInt32(8) == 1));
+        }
+    }, "Cannot read the files for the junk check");
 }

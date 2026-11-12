@@ -8,11 +8,11 @@ namespace RecoveryUI.Controllers;
 /// <summary>Navigation, Simple/Expert mode, the shared busy state and the live log.</summary>
 public sealed class MainController(
     IMainView main, OperationRunner runner, UiLog log, CatalogService catalog,
-    HomeController home, DisksController disks, ScanController scan, ReportController report, DiskMapController diskMap, CopyController copy, SettingsController settings)
+    HomeController home, DisksController disks, ScanController scan, ReportController report, DiskMapController diskMap, JunkController junk, CopyController copy, SettingsController settings)
 {
     readonly Dictionary<Page, IPageController> pages = new()
     {
-        [Page.Home] = home, [Page.Disks] = disks, [Page.Scan] = scan, [Page.Report] = report, [Page.DiskMap] = diskMap, [Page.Copy] = copy, [Page.Settings] = settings,
+        [Page.Home] = home, [Page.Disks] = disks, [Page.Scan] = scan, [Page.Report] = report, [Page.DiskMap] = diskMap, [Page.Junk] = junk, [Page.Copy] = copy, [Page.Settings] = settings,
     };
     bool expert;
 
@@ -23,6 +23,7 @@ public sealed class MainController(
         scan.Attach();
         report.Attach();
         diskMap.Attach();
+        junk.Attach();
         copy.Attach();
         settings.Attach();
 
@@ -37,6 +38,7 @@ public sealed class MainController(
             if (busy) return;
             pages[Page.Home].OnShown();   // keep the home numbers fresh
             diskMap.MarkStale();          // a scan or copy changed the catalog
+            junk.MarkStale();
         };
         log.LineWritten += main.AppendLog;
 
@@ -44,7 +46,7 @@ public sealed class MainController(
         foreach (var c in pages.Values) _ = c.View.Control.Handle;
 
         main.SetCatalogDescription("Catalog: " + catalog.Description);
-        SetExpert(UiPreferences.LoadExpert());
+        SetExpert(ExpertPreference.LoadExpert());
         Navigate(Page.Home);
     }
 
@@ -60,12 +62,12 @@ public sealed class MainController(
         expert = on;
         main.SetExpertMode(on);
         foreach (var c in pages.Values) c.View.SetExpertMode(on);
-        UiPreferences.SaveExpert(on);
+        ExpertPreference.SaveExpert(on);
     }
 }
 
 /// <summary>Remembers Simple/Expert between runs (a per-user convenience; nothing important).</summary>
-static class UiPreferences
+static class ExpertPreference
 {
     static readonly string File = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RecoveryToolkit", "ui-expert-mode");
 

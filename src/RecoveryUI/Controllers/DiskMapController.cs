@@ -1,8 +1,8 @@
-using System.Diagnostics;
 using RecoveryBLL;
 using RecoveryBLL.Exceptions;
 using RecoveryBLL.Models;
 using RecoveryBLL.Services;
+using RecoveryUI.Infrastructure;
 using RecoveryUI.ViewModels;
 using RecoveryUI.Views;
 
@@ -130,28 +130,11 @@ public sealed class DiskMapController(IDiskMapView view, IMainView main, DiskMap
     /// <summary>Opens Explorer at the block (read-only). Unplugged or moved files get a short explanation instead.</summary>
     void Open(MapNode n)
     {
-        var mounted = disks.GetMountedRoots();
-        var disk = disks.GetCatalogued().FirstOrDefault(d => d.Id == n.DiskId);
-        if (n.Kind == MapNodeKind.Root || !mounted.TryGetValue(n.DiskId, out var root))
+        if (n.Kind == MapNodeKind.Root)
         {
-            main.ShowInfo("Not plugged in", $"Plug in {disk?.DisplayName ?? "this disk"} to open it in Explorer. The map itself works without the disk.");
+            main.ShowInfo("Show in Explorer", "Choose a disk, folder or file on the map.");
             return;
         }
-        var rel = n.RelativePath;
-        var path = rel.Length == 0 ? root : Path.Combine(root, rel);
-        bool isFile = n.Kind == MapNodeKind.File;
-        if (isFile ? !File.Exists(path) : !Directory.Exists(path))
-        {
-            main.ShowInfo("Not found", $"{path}\n\nis no longer there: it was moved or deleted after the disk was catalogued. Catalog the disk again to update the map.");
-            return;
-        }
-        try
-        {
-            Process.Start(new ProcessStartInfo("explorer.exe", isFile ? $"/select,\"{path}\"" : $"\"{path}\"") { UseShellExecute = false });
-        }
-        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
-        {
-            main.ShowError("Show in Explorer", ex.Message);
-        }
+        ExplorerLauncher.Show(main, disks, n.DiskId, n.RelativePath, n.Kind == MapNodeKind.File);
     }
 }

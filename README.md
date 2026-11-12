@@ -69,6 +69,8 @@ You can also press F5 in Visual Studio (start project **RecoveryUI**) or VS Code
 
 **Disk map** (any time after cataloguing) shows what takes the space, like WinDirStat: every file is a block sized by its bytes and coloured by type. Striped blocks are extra copies of files kept elsewhere; a dotted edge means "not fingerprinted yet". Double-click to zoom into a folder; right-click to show a file in Explorer or copy its path. It is built from the catalog only, so it changes nothing and also works for unplugged disks. Expert mode adds the folder tree, the extension list (click one to highlight its files) and **Save as PNG**. Block colours are the `color` attributes in `config/dictionaries.xml`.
 
+**Junk and apps** shows what the junk rules found (thumbnails, icons and skins, broken scraps, `desktop.ini`, caches) and which folders are kept whole: a Minecraft server, a database, a code project, or a program. It moves and deletes nothing. It only decides where **Copy** puts those files, as shown in the table under [Copying](#copying-phase-2). The rules are in `config/dictionaries.xml` ("Open the rules file"); after editing them, press **Check again**.
+
 Turn on **Expert mode** (top right) for disk numbers and bus types, more options, the CSV export, Linux (WSL) disks and the live log.
 
 ### Command line
@@ -88,12 +90,13 @@ publish\rtcatalog scan F:\
 publish\rtcatalog scan G:\
 publish\rtcatalog report --top 20
 publish\rtcatalog verify
+publish\rtcatalog junk
 publish\rtcatalog plan H:\ I:\ --csv plan.csv
 publish\rtcatalog copy H:\ I:\
 ```
 
 1. `scan` catalogs and fingerprints one source disk. It only reads the disk. Repeat it for every source disk.
-2. `report` shows what is unique and what is duplicated. `verify` re-reads 20 random duplicate groups and confirms they are byte-for-byte identical (`--top 50` for more).
+2. `report` shows what is unique and what is duplicated. `verify` re-reads 20 random duplicate groups and confirms they are byte-for-byte identical (`--top 50` for more). `junk` lists the junk and the folders that are kept whole.
 3. `plan` is a dry run: what goes where, and whether it fits. It writes nothing; `plan.csv` lists every file.
 4. `copy` does the copy. Ctrl+C stops it; running the same command again continues where it stopped.
 
@@ -135,6 +138,7 @@ rtcatalog report --top 20           totals per disk + the 20 biggest duplicate g
 rtcatalog disks                     catalogued disks + plugged-in drives with connection type
 rtcatalog devices                   physical disks: number, model, bus, HDD/SSD, TRIM
 rtcatalog merge other-pc.db         merge a catalog made on another PC (works into SQL Server too)
+rtcatalog junk --top 10             junk (thumbnails, icons, scraps...) and keep-together folders, with the 10 largest files per reason
 rtcatalog plan H:\ I:\               dry run: what goes where on main H: then overflow I:, and does it fit?
 rtcatalog plan H:\ I:\=500GB --csv plan.csv   cap I: at 500 GB, write every planned file to a CSV
 rtcatalog copy H:\ I:\               copy one clean set (stop any time; run again to continue)
@@ -145,7 +149,7 @@ rtcatalog wsl scan 3 1 ext4         mount PhysicalDrive3 partition 1 read-only v
 
 Options: `--env <file>`, `--db <sqlite file>` (overrides the `.env`), `--exclude <name or path>`, `--threads <n|auto>` (default auto: 1 for HDD, more for SSD/NVMe), `--sha256`, `--no-hash`, `--no-media`, `--top <n>`.
 
-`plan`/`copy` options: `--no-duplicates`, `--reserve <size>` (default 1GB), `--csv <file>`, `--allow-pending`, `--verify`.
+`plan`/`copy` options: `--no-duplicates`, `--reserve <size>` (default 1GB), `--csv <file>`, `--allow-pending`, `--verify`, `--junk aside|skip|off` (default `aside`: junk and reinstallable programs go to `_Review`; `skip`: not copied; `off`: no junk detection).
 
 ## Safety
 
@@ -166,8 +170,10 @@ Source disks are only read. On the destinations you get:
 | `Photos\`, `Videos\`, `Documents\`, … | one copy of all content, in its original folder structure |
 | `_OlderVersions\<disk>\…` | same folder and name as a newer file, but different content |
 | `_Duplicates\<disk>\…` | identical extra copies (lowest priority; skip with `--no-duplicates`) |
+| `Apps and data\<disk>\<original path>` | folders that only work when complete (Minecraft server or world, database, code project): copied **whole**, never sorted by type, and no duplicates removed inside them |
+| `_Review\<reason>\<disk>\<original path>` | junk (Thumbnails, Icons and skins, Scraps, System files, Caches, Image sets) and reinstallable programs (Programs, Games, App data). They get space after your own files; skip them with `--junk skip` |
 
-Unique files get the space first. Old `_Duplicates` files are removed only to make room for a unique file, and only if that content is still kept elsewhere on the destination. Nothing on a destination is overwritten. Copies are written as `.rtpart`, checked against the catalog hash, then renamed, so stopping is always safe.
+Unique files and keep-together folders get the space first, then `_Review`, then `_Duplicates`. An extra copy of a junk file is not copied again. Old `_Duplicates` files are removed only to make room for a unique file, and only if that content is still kept elsewhere on the destination. Nothing on a destination is overwritten. Copies are written as `.rtpart`, checked against the catalog hash, then renamed, so stopping is always safe.
 
 ## How it avoids reading everything
 

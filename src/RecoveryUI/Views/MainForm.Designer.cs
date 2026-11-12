@@ -31,8 +31,8 @@ partial class MainForm
         btnSettings = new Button();
         lblComing = new Label();
         btnDiskMap = new Button();
+        btnJunk = new Button();
         btnCopy = new Button();
-        btnFutureJunk = new Button();
         btnFutureCorrupt = new Button();
         btnFutureDeep = new Button();
         btnFutureNetwork = new Button();
@@ -115,10 +115,10 @@ partial class MainForm
         panelNav.Controls.Add(btnScan);
         panelNav.Controls.Add(btnReport);
         panelNav.Controls.Add(btnDiskMap);
+        panelNav.Controls.Add(btnJunk);
         panelNav.Controls.Add(btnCopy);
         panelNav.Controls.Add(btnSettings);
         panelNav.Controls.Add(lblComing);
-        panelNav.Controls.Add(btnFutureJunk);
         panelNav.Controls.Add(btnFutureCorrupt);
         panelNav.Controls.Add(btnFutureDeep);
         panelNav.Controls.Add(btnFutureNetwork);
@@ -179,19 +179,17 @@ partial class MainForm
         btnDiskMap.Size = new Size(194, 38);
         btnDiskMap.Text = "   Disk map";
         //
+        // btnJunk
+        //
+        btnJunk.Name = "btnJunk";
+        btnJunk.Size = new Size(194, 38);
+        btnJunk.Text = "   Junk and apps";
+        //
         // btnCopy
         //
         btnCopy.Name = "btnCopy";
         btnCopy.Size = new Size(194, 38);
         btnCopy.Text = "   Copy";
-        //
-        // btnFutureJunk
-        //
-        btnFutureJunk.Enabled = false;
-        btnFutureJunk.Name = "btnFutureJunk";
-        btnFutureJunk.Size = new Size(194, 34);
-        btnFutureJunk.Tag = "Phase 3/3b: game assets, icons, skins, thumbnails and low-quality previews.";
-        btnFutureJunk.Text = "   Clean up junk";
         //
         // btnFutureCorrupt
         //
@@ -308,8 +306,8 @@ partial class MainForm
     private Button btnSettings;
     private Label lblComing;
     private Button btnDiskMap;
+    private Button btnJunk;
     private Button btnCopy;
-    private Button btnFutureJunk;
     private Button btnFutureCorrupt;
     private Button btnFutureDeep;
     private Button btnFutureNetwork;

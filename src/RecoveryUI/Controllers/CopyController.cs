@@ -55,7 +55,7 @@ public sealed class CopyController(
         var o = view.Options;
         return new ConsolidateOptions(
             view.Destinations.Select(d => new DestinationRequest(d.Path, d.MaxBytes)).ToList(),
-            o.CopyDuplicates, o.ReserveBytes, o.AllowPending, o.Verify, approvedCode, o.WaitForUnplugged);
+            o.CopyDuplicates, o.ReserveBytes, o.AllowPending, o.Verify, approvedCode, o.WaitForUnplugged, o.Junk);
     }
 
     async void CheckPlan()
@@ -162,7 +162,8 @@ public sealed class CopyController(
             verdict = "Nothing left to copy: everything is already on the backup disk.";
         else
             verdict = $"Everything fits: {Format.Bytes(p.UniqueBytes)} of unique data, {Format.Bytes(p.UsableBytes)} usable."
-                      + (p.DuplicatesNoRoom > 0 ? $" {p.DuplicatesNoRoom:N0} duplicates don't fit; that's fine, one copy of their content is kept." : "");
+                      + (p.DuplicatesNoRoom > 0 ? $" {p.DuplicatesNoRoom:N0} duplicates don't fit; that's fine, one copy of their content is kept." : "")
+                      + (p.ReviewNoRoom > 0 ? $" {p.ReviewNoRoom:N0} junk files don't fit; they stay on the source disks." : "");
 
         return new CopyPlanViewModel
         {
@@ -173,6 +174,13 @@ public sealed class CopyController(
             DuplicatesCaption = o.CopyDuplicates ? "only into leftover space" : "not copied (switched off)",
             Already = (p.Files(CopyAction.AlreadyThere) + p.SameDiskFiles).ToString("N0"),
             AlreadyCaption = $"files, {Format.Bytes(p.Bytes(CopyAction.AlreadyThere) + p.SameDiskBytes)}",
+            Review = Format.Bytes(p.ReviewBytes),
+            ReviewCaption = o.Junk switch
+            {
+                JunkHandling.Skip => $"{p.ReviewFiles:N0} files, left out",
+                JunkHandling.Off => "junk detection off",
+                _ => $"{p.ReviewFiles:N0} files, to _Review",
+            },
             Verdict = verdict,
             Fits = p.UniqueFits,
             Destinations = p.Destinations.Select(d => new DestinationRowViewModel

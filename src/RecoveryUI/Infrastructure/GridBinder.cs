@@ -22,8 +22,10 @@ public static class GridBinder
         {
             if (grid.Columns[p.Name] is not { } col) continue;
             col.Visible = expert || p.GetCustomAttribute<ExpertOnlyAttribute>() == null;
-            if (p.GetCustomAttribute<NumericAttribute>() != null)
-                col.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleRight;
+            // Header and cells share one alignment, otherwise a right-aligned number sits under a left-aligned title.
+            var align = p.GetCustomAttribute<NumericAttribute>() != null ? DataGridViewContentAlignment.MiddleRight : DataGridViewContentAlignment.MiddleLeft;
+            col.DefaultCellStyle.Alignment = align;
+            col.HeaderCell.Style.Alignment = align;
         }
     }
 

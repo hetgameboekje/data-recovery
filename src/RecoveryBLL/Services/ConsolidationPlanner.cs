@@ -11,6 +11,10 @@ namespace RecoveryBLL.Services;
 ///      OlderVersion  - same folder + name as a kept file but different content: the newest is kept,
 ///                      older ones go to _OlderVersions\&lt;disk&gt;\&lt;original path&gt;
 ///   3. AlreadyThere  - the content is on a destination disk already
+///   Phase 3 tags (FileTagger) come first:
+///      KeepTogether  - inside a keep-together folder: Apps and data\&lt;disk&gt;\&lt;original path&gt;, whole, never deduplicated
+///      Review        - junk or a reinstallable folder: _Review\&lt;reason&gt;\&lt;disk&gt;\&lt;original path&gt;, after unique files
+///                      (SkippedReview when switched off). Junk copies of a kept file are not copied again.
 /// Space: unique files (Keep + OlderVersion) first, on the destinations in the given order (main, then overflow).
 /// Duplicates only get what is left. If a unique file does not fit anywhere, old _Duplicates files on a
 /// destination are evicted (oldest first) - but only those whose content is also kept outside _Duplicates.
@@ -21,20 +25,33 @@ internal static class ConsolidationPlanner
 {
     public const string OlderVersionsFolder = "_OlderVersions";
     public const string DuplicatesFolder = "_Duplicates";
+    public const string AppsFolder = "Apps and data";
+    public const string ReviewFolder = "_Review";
     public const long Fat32MaxFileSize = uint.MaxValue;   // 4 GB - 1 byte
     const long Cluster = 4096;
 
     public sealed record Result(List<PlanItem> Items, List<PlanEviction> Evictions, long PendingFiles, long PendingBytes);
 
     public static Result Build(IReadOnlyList<PlanFileDto> files, IReadOnlyList<DestinationPlan> destinations,
-                               IReadOnlyDictionary<long, string> diskFolders, bool copyDuplicates)
+                               IReadOnlyDictionary<long, string> diskFolders, bool copyDuplicates,
+                               IReadOnlyDictionary<long, FileTag>? tags = null, JunkHandling junk = JunkHandling.SetAside)
     {
+        tags ??= new Dictionary<long, FileTag>();
+        FileTag? TagOf(PlanFileDto f)
+        {
+            if (!tags.TryGetValue(f.Id, out var t)) return null;
+            if (junk != JunkHandling.Off) return t;
+            // Off: no junk; reinstallable folders are still kept whole, but like your own files.
+            return t.Kind switch { TagKind.Junk => null, TagKind.ReviewTogether => t with { Kind = TagKind.KeepTogether }, _ => t };
+        }
         var destById = destinations.ToDictionary(d => d.DiskId);
         var onDest = files.Where(f => destById.ContainsKey(f.DiskId)).ToList();
         var sources = files.Where(f => !destById.ContainsKey(f.DiskId)).ToList();
 
         // ---- what the destinations already hold (paths are relative to the destination folder, one shared namespace)
         var presentKeys = onDest.Where(f => f.FullHash != null).Select(Key).ToHashSet();
+        // Keep-together files are "already there" only at their own place (the folder must be complete).
+        var presentAt = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var existingMtime = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         var keptOutsideDuplicates = new Dictionary<string, PlanFileDto>();
@@ -44,6 +61,7 @@ internal static class ConsolidationPlanner
             if (rel == null) continue;
             taken.Add(rel);
             existingMtime[rel] = f.MtimeTicks;
+            if (f.FullHash != null) presentAt.Add(rel + "|" + Key(f));
             if (f.FullHash != null && !IsUnder(rel, DuplicatesFolder)) keptOutsideDuplicates.TryAdd(Key(f), f);
         }
         var evictable = destinations.ToDictionary(d => d.DiskId, d => new Queue<PlanFileDto>(onDest
@@ -56,21 +74,45 @@ internal static class ConsolidationPlanner
         var items = new List<PlanItem>(sources.Count);
         var keepers = new List<PlanItem>();
         var duplicates = new List<PlanItem>();
-        foreach (var group in sources.GroupBy(Key))
+        var together = new List<(PlanItem Item, FileTag Tag)>();
+        var review = new List<(PlanItem Item, FileTag Tag)>();
+        PlanItem NewItem(PlanFileDto f) => new()
+        {
+            FileId = f.Id, SourceDiskId = f.DiskId, SourcePath = f.Path, Size = f.Size, MtimeTicks = f.MtimeTicks,
+            Category = string.IsNullOrEmpty(f.MediaType) ? "Other" : f.MediaType, FullHash = f.FullHash,
+        };
+
+        // ---- keep-together folders: every file, at its own place (a server or database only works complete)
+        var loose = new List<PlanFileDto>(sources.Count);
+        foreach (var f in sources)
+        {
+            if (TagOf(f) is not { Kind: TagKind.KeepTogether or TagKind.ReviewTogether } t) { loose.Add(f); continue; }
+            var item = NewItem(f);
+            items.Add(item);
+            if (t.Kind == TagKind.KeepTogether) together.Add((item, t));
+            else if (junk == JunkHandling.Skip) item.Action = CopyAction.SkippedReview;
+            else review.Add((item, t));
+        }
+
+        foreach (var group in loose.GroupBy(Key))
         {
             bool there = presentKeys.Contains(group.Key);
-            // The copy that is kept: the oldest modified time (closest to the original), then the shortest path.
-            var ordered = group.OrderBy(f => f.MtimeTicks).ThenBy(f => f.Path.Length).ThenBy(f => f.Id).ToList();
+            // The copy that is kept: not junk if any copy is not junk, then the oldest modified time (closest to the
+            // original), then the shortest path.
+            var ordered = group.OrderBy(f => TagOf(f) == null ? 0 : 1).ThenBy(f => f.MtimeTicks).ThenBy(f => f.Path.Length).ThenBy(f => f.Id).ToList();
             for (int i = 0; i < ordered.Count; i++)
             {
                 var f = ordered[i];
-                var item = new PlanItem
-                {
-                    FileId = f.Id, SourceDiskId = f.DiskId, SourcePath = f.Path, Size = f.Size, MtimeTicks = f.MtimeTicks,
-                    Category = string.IsNullOrEmpty(f.MediaType) ? "Other" : f.MediaType, FullHash = f.FullHash,
-                };
+                var item = NewItem(f);
+                var tag = TagOf(f);
                 if (there) item.Action = CopyAction.AlreadyThere;
+                else if (i == 0 && tag != null)
+                {
+                    if (junk == JunkHandling.Skip) item.Action = CopyAction.SkippedReview;
+                    else review.Add((item, tag));
+                }
                 else if (i == 0) keepers.Add(item);
+                else if (tag != null) item.Action = CopyAction.SkippedDuplicate;   // an extra copy of junk is not worth space
                 else if (copyDuplicates) { item.Action = CopyAction.Duplicate; duplicates.Add(item); }
                 else item.Action = CopyAction.SkippedDuplicate;
                 items.Add(item);
@@ -115,13 +157,32 @@ internal static class ConsolidationPlanner
         }
         foreach (var d in duplicates)
             d.DestPath = Claim(Path.Combine(DuplicatesFolder, DiskFolder(d.SourceDiskId), SafeRelative(d.SourcePath)));
+        foreach (var (item, tag) in together)
+            PlaceAt(item, Path.Combine(AppsFolder, DiskFolder(item.SourceDiskId), SafeRelative(item.SourcePath)), CopyAction.KeepTogether);
+        foreach (var (item, tag) in review)
+            PlaceAt(item, Path.Combine(ReviewFolder, SafeName(tag.Reason), DiskFolder(item.SourceDiskId), SafeRelative(item.SourcePath)), CopyAction.Review);
+
+        void PlaceAt(PlanItem item, string rel, CopyAction action)
+        {
+            if (item.FullHash != null && presentAt.Contains(rel + "|" + Convert.ToHexString(item.FullHash)))
+            {
+                item.Action = CopyAction.AlreadyThere;
+                return;
+            }
+            item.Action = action;
+            item.DestPath = Claim(rel);
+        }
 
         // ---- space: unique content first (may evict old duplicates), then duplicates in what is left
         var remaining = destinations.ToDictionary(d => d.DiskId, d => Math.Max(0, d.UsableBytes));
         var evictions = new List<PlanEviction>();
-        foreach (var item in keepers.OrderBy(i => i.SourceDiskId).ThenBy(i => i.SourcePath, StringComparer.OrdinalIgnoreCase))
+        static IEnumerable<PlanItem> InOrder(IEnumerable<PlanItem> list) =>
+            list.OrderBy(i => i.SourceDiskId).ThenBy(i => i.SourcePath, StringComparer.OrdinalIgnoreCase);
+        foreach (var item in InOrder(keepers.Concat(together.Select(t => t.Item)).Where(i => i.Action != CopyAction.AlreadyThere)))
             Place(item, allowEviction: true);
-        foreach (var item in duplicates.OrderBy(i => i.SourceDiskId).ThenBy(i => i.SourcePath, StringComparer.OrdinalIgnoreCase))
+        foreach (var item in InOrder(review.Select(r => r.Item).Where(i => i.Action == CopyAction.Review)))
+            Place(item, allowEviction: false);
+        foreach (var item in InOrder(duplicates))
             Place(item, allowEviction: false);
 
         long pendingFiles = 0, pendingBytes = 0;
@@ -154,6 +215,7 @@ internal static class ConsolidationPlanner
             if (target == null)
             {
                 item.Note = item.Action == CopyAction.Duplicate ? PlanNotes.DuplicateNoRoom
+                    : item.Action == CopyAction.Review ? PlanNotes.ReviewNoRoom
                     : candidates.Count == 0 ? "larger than 4 GB: FAT32 destinations cannot hold it"
                     : "no room on any destination";
                 item.Action = CopyAction.NoRoom;

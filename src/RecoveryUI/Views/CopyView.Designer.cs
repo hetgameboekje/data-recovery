@@ -18,6 +18,7 @@ partial class CopyView
         layout = new TableLayoutPanel();
         panelIntro = new FlowLayoutPanel();
         lblIntroTitle = new Label();
+        lnkIntro = new LinkLabel();
         lblIntro = new Label();
         lblIntroExample = new Label();
         lblIntroDeep = new Label();
@@ -27,6 +28,8 @@ partial class CopyView
         panelDest = new FlowLayoutPanel();
         lstDestinations = new ListBox();
         panelDestButtons = new FlowLayoutPanel();
+        panelPick = new FlowLayoutPanel();
+        panelList = new FlowLayoutPanel();
         cmbDrives = new ComboBox();
         btnAddDrive = new Button();
         btnAddFolder = new Button();
@@ -54,6 +57,9 @@ partial class CopyView
         tileUnique = new Controls.StatTile();
         tileDuplicates = new Controls.StatTile();
         tileAlready = new Controls.StatTile();
+        tileReview = new Controls.StatTile();
+        lblJunk = new Label();
+        cmbJunk = new ComboBox();
         lblVerdict = new Label();
         gridDestinations = new DataGridView();
         lblNotes = new Label();
@@ -101,7 +107,8 @@ partial class CopyView
         layout.AutoSize = true;
         layout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         layout.ColumnCount = 1;
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        layout.Dock = DockStyle.Top;
         layout.Controls.Add(panelIntro, 0, 0);
         layout.Controls.Add(lblStep1, 0, 1);
         layout.Controls.Add(lblStep1Hint, 0, 2);
@@ -138,6 +145,7 @@ partial class CopyView
         //
         panelIntro.AutoSize = true;
         panelIntro.Controls.Add(lblIntroTitle);
+        panelIntro.Controls.Add(lnkIntro);
         panelIntro.Controls.Add(lblIntro);
         panelIntro.Controls.Add(lblIntroExample);
         panelIntro.Controls.Add(lblIntroDeep);
@@ -146,6 +154,14 @@ partial class CopyView
         panelIntro.Name = "panelIntro";
         panelIntro.Padding = new Padding(12, 10, 12, 10);
         panelIntro.WrapContents = false;
+        //
+        // lnkIntro
+        //
+        lnkIntro.AutoSize = true;
+        lnkIntro.Margin = new Padding(3, 2, 3, 0);
+        lnkIntro.Name = "lnkIntro";
+        lnkIntro.TabStop = true;
+        lnkIntro.Text = "Hide explanation";
         //
         // lblIntroTitle
         //
@@ -165,6 +181,9 @@ partial class CopyView
             "•  Every unique file is copied once, sorted into Photos, Videos, Audio, Documents, Archives and Other. Inside those, the original folder names are kept.\n" +
             "•  Files that are exactly the same as one already copied go to the folder _Duplicates (only if there is room left). " +
             "Same name and folder but different content: the newest goes to the main folders, older ones to _OlderVersions. Nothing is thrown away.\n" +
+            "•  Folders that only work complete (a Minecraft server, a database, a code project) are copied whole, in their own structure, to \"Apps and data\".\n" +
+            "•  Junk (thumbnails, icons, broken scraps, desktop.ini) and reinstallable programs go to _Review, after your own files and only if there is room. " +
+            "See the \"Junk and apps\" page.\n" +
             "•  Files that are already on the backup disk are skipped. Nothing on the backup disk is overwritten.\n" +
             "•  You can stop at any time. Starting again continues where it stopped.";
         //
@@ -199,31 +218,48 @@ partial class CopyView
         lblStep1Hint.AutoSize = true;
         lblStep1Hint.MaximumSize = new Size(820, 0);
         lblStep1Hint.Name = "lblStep1Hint";
-        lblStep1Hint.Text = "Pick the backup disk in the list on the right (or type/paste a folder path) and press Add. " +
+        lblStep1Hint.Text = "Pick the backup disk in the box below (or type/paste a folder path) and press Add. " +
             "If one disk is too small, add a second one: it is used when the first is full. Best is an empty disk. " +
             "On the Windows drive (C:) only a subfolder can be used, and at least 20 GB stays free.";
         //
         // panelDest
         //
         panelDest.AutoSize = true;
-        panelDest.Controls.Add(lstDestinations);
-        panelDest.Controls.Add(panelDestButtons);
+        panelDest.Controls.Add(panelPick);
+        panelDest.Controls.Add(panelList);
+        panelDest.FlowDirection = FlowDirection.TopDown;
         panelDest.Name = "panelDest";
         panelDest.WrapContents = false;
+        //
+        // panelPick
+        //
+        panelPick.AutoSize = true;
+        panelPick.Controls.Add(cmbDrives);
+        panelPick.Controls.Add(btnAddDrive);
+        panelPick.Controls.Add(btnAddFolder);
+        panelPick.Margin = new Padding(0);
+        panelPick.Name = "panelPick";
+        panelPick.WrapContents = false;
+        //
+        // panelList
+        //
+        panelList.AutoSize = true;
+        panelList.Controls.Add(lstDestinations);
+        panelList.Controls.Add(panelDestButtons);
+        panelList.Margin = new Padding(0);
+        panelList.Name = "panelList";
+        panelList.WrapContents = false;
         //
         // lstDestinations
         //
         lstDestinations.IntegralHeight = false;
         lstDestinations.Name = "lstDestinations";
-        lstDestinations.Size = new Size(520, 130);
+        lstDestinations.Size = new Size(480, 150);
         lstDestinations.TabIndex = 1;
         //
         // panelDestButtons
         //
         panelDestButtons.AutoSize = true;
-        panelDestButtons.Controls.Add(cmbDrives);
-        panelDestButtons.Controls.Add(btnAddDrive);
-        panelDestButtons.Controls.Add(btnAddFolder);
         panelDestButtons.Controls.Add(btnUp);
         panelDestButtons.Controls.Add(btnDown);
         panelDestButtons.Controls.Add(btnRemove);
@@ -235,7 +271,8 @@ partial class CopyView
         //
         cmbDrives.DropDownStyle = ComboBoxStyle.DropDown;
         cmbDrives.Name = "cmbDrives";
-        cmbDrives.Size = new Size(300, 28);
+        cmbDrives.Margin = new Padding(3, 6, 3, 3);
+        cmbDrives.Size = new Size(390, 28);
         cmbDrives.TabIndex = 2;
         //
         // btnAddDrive
@@ -287,6 +324,8 @@ partial class CopyView
         //
         flowOptions.AutoSize = true;
         flowOptions.Controls.Add(chkDuplicates);
+        flowOptions.Controls.Add(lblJunk);
+        flowOptions.Controls.Add(cmbJunk);
         flowOptions.Controls.Add(chkVerify);
         flowOptions.Controls.Add(chkWait);
         flowOptions.Controls.Add(chkAllowPending);
@@ -298,6 +337,7 @@ partial class CopyView
         flowOptions.MaximumSize = new Size(800, 0);
         flowOptions.Name = "flowOptions";
         flowOptions.SetFlowBreak(chkDuplicates, true);
+        flowOptions.SetFlowBreak(cmbJunk, true);
         flowOptions.SetFlowBreak(chkVerify, true);
         flowOptions.SetFlowBreak(chkWait, true);
         flowOptions.SetFlowBreak(chkAllowPending, true);
@@ -309,6 +349,19 @@ partial class CopyView
         chkDuplicates.Checked = true;
         chkDuplicates.Name = "chkDuplicates";
         chkDuplicates.Text = "Copy identical extra copies to _Duplicates (only into space that is left)";
+        //
+        // lblJunk
+        //
+        lblJunk.AutoSize = true;
+        lblJunk.Margin = new Padding(3, 7, 3, 3);
+        lblJunk.Name = "lblJunk";
+        lblJunk.Text = "Junk and reinstallable programs:";
+        //
+        // cmbJunk
+        //
+        cmbJunk.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbJunk.Name = "cmbJunk";
+        cmbJunk.Size = new Size(430, 25);
         //
         // chkVerify
         //
@@ -407,6 +460,7 @@ partial class CopyView
         flowTiles.Controls.Add(tileToCopy);
         flowTiles.Controls.Add(tileUnique);
         flowTiles.Controls.Add(tileDuplicates);
+        flowTiles.Controls.Add(tileReview);
         flowTiles.Controls.Add(tileAlready);
         flowTiles.Name = "flowTiles";
         //
@@ -427,6 +481,12 @@ partial class CopyView
         tileDuplicates.Caption = "identical extra copies";
         tileDuplicates.Name = "tileDuplicates";
         tileDuplicates.Title = "Duplicates";
+        //
+        // tileReview
+        //
+        tileReview.Caption = "to _Review";
+        tileReview.Name = "tileReview";
+        tileReview.Title = "Junk and programs";
         //
         // tileAlready
         //
@@ -584,6 +644,7 @@ partial class CopyView
     private TableLayoutPanel layout;
     private FlowLayoutPanel panelIntro;
     private Label lblIntroTitle;
+    private LinkLabel lnkIntro;
     private Label lblIntro;
     private Label lblIntroExample;
     private Label lblIntroDeep;
@@ -593,6 +654,8 @@ partial class CopyView
     private FlowLayoutPanel panelDest;
     private ListBox lstDestinations;
     private FlowLayoutPanel panelDestButtons;
+    private FlowLayoutPanel panelPick;
+    private FlowLayoutPanel panelList;
     private ComboBox cmbDrives;
     private Button btnAddDrive;
     private Button btnAddFolder;
@@ -620,6 +683,9 @@ partial class CopyView
     private Controls.StatTile tileUnique;
     private Controls.StatTile tileDuplicates;
     private Controls.StatTile tileAlready;
+    private Controls.StatTile tileReview;
+    private Label lblJunk;
+    private ComboBox cmbJunk;
     private Label lblVerdict;
     private DataGridView gridDestinations;
     private Label lblNotes;

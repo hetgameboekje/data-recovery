@@ -78,6 +78,19 @@ public interface ISettingsView : IPageView
     string? PickCatalogFile();
 }
 
+/// <summary>Phase 3: what the junk and keep-together rules found (read-only; the Copy page acts on it).</summary>
+public interface IJunkView : IPageView
+{
+    /// <summary>Reload the rules (dictionaries.xml) and check the catalog again.</summary>
+    event EventHandler? RefreshRequested;
+    event EventHandler? OpenRulesRequested;
+    /// <summary>(disk id, path relative to the disk root, is a file)</summary>
+    event EventHandler<(long DiskId, string Path, bool IsFile)>? OpenInExplorerRequested;
+    void ShowLoading(string text);
+    void ShowResult(JunkPageViewModel vm);
+    void ShowError(string text);
+}
+
 /// <summary>Phase 2b: WinDirStat-style map of what takes the space, from the catalog only (read-only).</summary>
 public interface IDiskMapView : IPageView
 {

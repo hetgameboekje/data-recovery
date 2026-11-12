@@ -14,6 +14,7 @@ partial class DisksView
 
     private void InitializeComponent()
     {
+        scroll = new Panel();
         layout = new TableLayoutPanel();
         panelTop = new FlowLayoutPanel();
         lblDrives = new Label();
@@ -46,7 +47,8 @@ partial class DisksView
         //
         // layout
         //
-        layout.AutoScroll = true;
+        layout.AutoSize = true;
+        layout.AutoSizeMode = AutoSizeMode.GrowAndShrink;
         layout.ColumnCount = 1;
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
         layout.Controls.Add(panelTop, 0, 0);
@@ -58,7 +60,7 @@ partial class DisksView
         layout.Controls.Add(gridDevices, 0, 6);
         layout.Controls.Add(lblLinux, 0, 7);
         layout.Controls.Add(panelLinux, 0, 8);
-        layout.Dock = DockStyle.Fill;
+        layout.Dock = DockStyle.Top;
         layout.Name = "layout";
         layout.RowCount = 9;
         layout.RowStyles.Add(new RowStyle());
@@ -208,7 +210,11 @@ partial class DisksView
         //
         AutoScaleDimensions = new SizeF(7F, 17F);
         AutoScaleMode = AutoScaleMode.Font;
-        Controls.Add(layout);
+        scroll.AutoScroll = true;
+        scroll.Controls.Add(layout);
+        scroll.Dock = DockStyle.Fill;
+        scroll.Name = "scroll";
+        Controls.Add(scroll);
         Name = "DisksView";
         Size = new Size(940, 640);
         layout.ResumeLayout(false);
@@ -227,6 +233,7 @@ partial class DisksView
 
     #endregion
 
+    private Panel scroll;
     private TableLayoutPanel layout;
     private FlowLayoutPanel panelTop;
     private Label lblDrives;

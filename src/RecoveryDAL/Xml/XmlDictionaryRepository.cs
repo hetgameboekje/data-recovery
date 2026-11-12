@@ -79,9 +79,17 @@ public sealed class XmlDictionaryRepository(string path) : IDictionaryRepository
                 ThumbnailSizes = Sizes(junk, "thumbnailSize"),
                 IconSizes = junk.SelectNodes("iconSize")!.Cast<XmlElement>()
                     .Select(e => int.TryParse(e.InnerText, out var n) ? n : 0).Where(n => n > 0).ToHashSet(),
-                GameAssetPathKeywords = junk.SelectNodes("gameAssetPathKeyword")!.Cast<XmlElement>()
-                    .Select(e => e.InnerText.Trim()).Where(s => s.Length > 0).ToList(),
+                ScrapBelow = junk.SelectNodes("scrap")!.Cast<XmlElement>()
+                    .ToDictionary(e => Required(e, "category"),
+                                  e => long.TryParse(Required(e, "below"), out var b) && b > 0 ? b
+                                       : throw new ConfigurationException($"<scrap category=\"{e.GetAttribute("category")}\">: below must be a positive number of bytes"),
+                                  StringComparer.OrdinalIgnoreCase),
+                JunkFiles = Texts(junk, "junkFile"),
+                JunkFolders = Texts(junk, "junkFolder"),
+                AssetFolderMinImages = junk.SelectSingleNode("assetFolder") is XmlElement af && int.TryParse(af.GetAttribute("minImages"), out var mi) ? mi : 200,
+                AssetFolderMaxSide = junk.SelectSingleNode("assetFolder") is XmlElement af2 && int.TryParse(af2.GetAttribute("maxSide"), out var ms) ? ms : 256,
             },
+            KeepTogether = root.SelectSingleNode("dictionary[@name='keepTogether']") is XmlElement kt ? Bundles(kt) : [],
         };
 
         HashSet<string> Items(string dict, StringComparer cmp, bool lower = false) =>
@@ -130,6 +138,33 @@ public sealed class XmlDictionaryRepository(string path) : IDictionaryRepository
     static string Required(XmlElement e, string attribute) =>
         e.GetAttribute(attribute) is { Length: > 0 } v ? v
             : throw new ConfigurationException($"<{e.Name}> needs a '{attribute}' attribute");
+
+    static HashSet<string> Texts(XmlElement parent, string element) =>
+        parent.SelectNodes(element)!.Cast<XmlElement>().Select(e => e.InnerText.Trim()).Where(s => s.Length > 0)
+              .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>&lt;bundle name="Minecraft" marker="server.properties" action="keep"/&gt; (or folder="..." / program="true").</summary>
+    static List<BundleRule> Bundles(XmlElement dict)
+    {
+        var list = new List<BundleRule>();
+        foreach (XmlElement b in dict.SelectNodes("bundle")!)
+        {
+            var name = Required(b, "name");
+            string? marker = b.GetAttribute("marker") is { Length: > 0 } m ? m : null;
+            string? folder = b.GetAttribute("folder") is { Length: > 0 } f ? f : null;
+            bool program = bool.TryParse(b.GetAttribute("program"), out var p) && p;
+            if ((marker != null ? 1 : 0) + (folder != null ? 1 : 0) + (program ? 1 : 0) != 1)
+                throw new ConfigurationException($"<bundle name=\"{name}\">: give exactly one of marker, folder or program=\"true\"");
+            var action = b.GetAttribute("action") switch
+            {
+                "" or "keep" => BundleAction.Keep,
+                "review" => BundleAction.Review,
+                var other => throw new ConfigurationException($"<bundle name=\"{name}\">: action must be keep or review, not '{other}'"),
+            };
+            list.Add(new BundleRule(name, marker, folder, program, action));
+        }
+        return list;
+    }
 
     static List<(int, int)> Sizes(XmlElement parent, string element) =>
         parent.SelectNodes(element)!.Cast<XmlElement>()

@@ -121,4 +121,8 @@ public sealed record CopyRecordDto(long SourceFileId, long DestDiskId, string De
 /// <summary>How a file shows on the disk map. Kept = the copy counted as "the" content of a duplicate group.</summary>
 public enum MapFileState : byte { Unique, Kept, ExtraCopy, Pending }
 
+/// <summary>Phase 3: what the junk and keep-together rules look at (no disk access needed).</summary>
+public readonly record struct FileFactsDto(long Id, long DiskId, string Path, string? Ext, long Size, string? MediaType,
+                                           int? Width, int? Height, bool HasCamera);
+
 public readonly record struct MapFileDto(long DiskId, string Path, long Size, long MtimeTicks, string? MediaType, string? Ext, MapFileState State);

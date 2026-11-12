@@ -28,6 +28,7 @@ public sealed class ConsolidationService(
     RunStateService runState,
     IDeletionConfirmer confirmer,
     IKeepAwake keepAwake,
+    JunkService junk,
     IOperationLog log)
 {
     const int Buffer = 1024 * 1024;
@@ -89,7 +90,8 @@ public sealed class ConsolidationService(
         var catalogued = disks.GetCatalogued().ToDictionary(d => d.Id);
         var folders = catalogued.ToDictionary(kv => kv.Key, kv => DiskFolderName(kv.Value));
         var files = RepositoryGuard.Run(repository.GetPlanFiles, "Cannot read the catalog");
-        var built = ConsolidationPlanner.Build(files, destinations, folders, options.CopyDuplicates);
+        var tagged = junk.Analyze(ct, options.Junk != JunkHandling.Off);
+        var built = ConsolidationPlanner.Build(files, destinations, folders, options.CopyDuplicates, tagged.Tags, options.Junk);
 
         var mounted = disks.GetMountedRoots();
         var waiting = built.Items.Where(i => i.NeedsCopy && !mounted.ContainsKey(i.SourceDiskId))
@@ -188,7 +190,7 @@ public sealed class ConsolidationService(
 
         // Unique content first, then duplicates; per source disk in path order (sequential reads).
         var todo = plan.Items.Where(i => i.NeedsCopy)
-            .OrderBy(i => i.Action == CopyAction.Duplicate ? 1 : 0)
+            .OrderBy(i => i.Action switch { CopyAction.Review => 1, CopyAction.Duplicate => 2, _ => 0 })
             .ThenBy(i => i.SourceDiskId)
             .ThenBy(i => i.SourcePath, StringComparer.OrdinalIgnoreCase)
             .ToList();

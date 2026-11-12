@@ -1,3 +1,4 @@
+using RecoveryBLL.Models;
 using RecoveryUI.Infrastructure;
 using RecoveryUI.ViewModels;
 
@@ -25,12 +26,22 @@ public partial class CopyView : UserControl, ICopyView
 
     bool expert, running, planShown, suppressCap;
 
+    static readonly (JunkHandling Value, string Text)[] JunkChoices =
+    [
+        (JunkHandling.SetAside, "Put aside in _Review (after your own files, if there is room)"),
+        (JunkHandling.Skip, "Leave them out (they stay on the source disks)"),
+        (JunkHandling.Off, "Don't detect junk: sort everything like your own files"),
+    ];
+
     public CopyView()
     {
         InitializeComponent();
         foreach (var l in new[] { lblStep1, lblStep2, lblStep3, lblIntroTitle }) l.Font = UiTheme.HeadingFont;
         lblStep1Hint.ForeColor = lblStep2Hint.ForeColor = lblNotes.ForeColor = lblDetail.ForeColor = lblIntroDeep.ForeColor = UiTheme.Muted;
         panelIntro.BackColor = UiTheme.Card;
+        lnkIntro.LinkColor = UiTheme.Accent;
+        lnkIntro.LinkClicked += (_, _) => ShowIntro(!lblIntro.Visible, remember: true);
+        ShowIntro(!UiPreferences.Get("copy-intro-hidden"), remember: false);
         lblIntroExample.Font = new Font("Consolas", 9.5f);
         lblSafe.ForeColor = UiTheme.Good;
         lblVerdict.Font = UiTheme.HeadingFont;
@@ -38,6 +49,10 @@ public partial class CopyView : UserControl, ICopyView
         lblDeletions.ForeColor = UiTheme.Warning;
         tileUnique.ValueColor = UiTheme.Good;
         tileDuplicates.ValueColor = UiTheme.Warning;
+        tileReview.ValueColor = UiTheme.Muted;
+        cmbJunk.Items.AddRange(JunkChoices.Select(c => (object)c.Text).ToArray());
+        cmbJunk.SelectedIndex = 0;
+        cmbJunk.SelectedIndexChanged += (_, _) => Changed();
         foreach (var b in new[] { btnAddDrive, btnAddFolder, btnUp, btnDown, btnRemove, btnRefreshDrives, btnExport, btnReviewDeletions, btnStop })
             UiTheme.Secondary(b);
         UiTheme.Primary(btnPlan);
@@ -80,6 +95,7 @@ public partial class CopyView : UserControl, ICopyView
         Verify = chkVerify.Checked,
         WaitForUnplugged = chkWait.Checked,
         AllowPending = chkAllowPending.Checked,
+        Junk = JunkChoices[Math.Max(0, cmbJunk.SelectedIndex)].Value,
         ReserveBytes = (long)numReserve.Value << 30,
     };
 
@@ -122,6 +138,14 @@ public partial class CopyView : UserControl, ICopyView
             ShowNewFolderButton = true,
         };
         if (dlg.ShowDialog(this) == DialogResult.OK) Add(dlg.SelectedPath, dlg.SelectedPath);
+    }
+
+    /// <summary>The explanation can be folded away once read, so the steps move up (remembered per user).</summary>
+    void ShowIntro(bool show, bool remember)
+    {
+        lblIntro.Visible = lblIntroExample.Visible = lblIntroDeep.Visible = show;
+        lnkIntro.Text = show ? "Hide explanation" : "Show explanation";
+        if (remember) UiPreferences.Set("copy-intro-hidden", !show);
     }
 
     void MoveSelected(int delta)
@@ -196,6 +220,8 @@ public partial class CopyView : UserControl, ICopyView
         tileUnique.Value = plan.Unique;
         tileDuplicates.Value = plan.Duplicates;
         tileDuplicates.Caption = plan.DuplicatesCaption;
+        tileReview.Value = plan.Review;
+        tileReview.Caption = plan.ReviewCaption;
         tileAlready.Value = plan.Already;
         tileAlready.Caption = plan.AlreadyCaption;
         lblVerdict.Text = plan.Verdict;

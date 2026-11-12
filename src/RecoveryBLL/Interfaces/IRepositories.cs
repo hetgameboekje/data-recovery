@@ -54,6 +54,9 @@ public interface IReportRepository
     /// Streamed row by row, so a big catalog is never held twice in memory.
     /// </summary>
     void ReadMapFiles(long? diskId, Action<MapFileDto> row, CancellationToken ct);
+
+    /// <summary>Phase 3: every present, non-empty file with what the junk/keep-together rules need. Streamed.</summary>
+    void ReadFileFacts(Action<FileFactsDto> row, CancellationToken ct);
 }
 
 /// <summary>Reading a whole catalog (merge source) and merging records into one (merge target).</summary>

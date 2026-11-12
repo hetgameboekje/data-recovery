@@ -43,6 +43,7 @@ public partial class DisksView : UserControl, IDisksView
         this.expert = expert;
         lblDevices.Visible = gridDevices.Visible = expert;
         lblLinux.Visible = panelLinux.Visible = expert;
+        layout.RowStyles[6].Height = expert ? 180 : 0;   // a fixed-height row keeps its height when its grid is hidden
         GridBinder.ApplyExpert<DriveRowViewModel>(gridDrives, expert);
         GridBinder.ApplyExpert<CatalogDiskRowViewModel>(gridCatalog, expert);
     }

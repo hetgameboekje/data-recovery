@@ -7,7 +7,7 @@ namespace RecoveryUI.ViewModels;
 
 // ViewModels: what a view shows, already formatted. Built by controllers from BLL models.
 
-public enum Page { Home, Disks, Scan, Report, DiskMap, Copy, Settings }
+public enum Page { Home, Disks, Scan, Report, DiskMap, Junk, Copy, Settings }
 
 public sealed class DriveRowViewModel
 {
@@ -160,6 +160,7 @@ public sealed class CopyOptionsViewModel
     public bool WaitForUnplugged { get; init; } = true;
     public bool AllowPending { get; init; }
     public long ReserveBytes { get; init; } = 1L << 30;
+    public JunkHandling Junk { get; init; } = JunkHandling.SetAside;
 }
 
 public sealed class DestinationRowViewModel
@@ -184,6 +185,8 @@ public sealed class CopyPlanViewModel
     public required string DuplicatesCaption { get; init; }
     public required string Already { get; init; }
     public required string AlreadyCaption { get; init; }
+    public required string Review { get; init; }
+    public required string ReviewCaption { get; init; }
     /// <summary>The one sentence: does it fit?</summary>
     public required string Verdict { get; init; }
     public bool Fits { get; init; }
@@ -193,6 +196,53 @@ public sealed class CopyPlanViewModel
     public required string Deletions { get; init; }
     public bool HasDeletions { get; init; }
     public bool CanStart { get; init; }
+}
+
+// ---- Phase 3: junk and keep-together folders
+
+public sealed class JunkGroupRowViewModel
+{
+    [Browsable(false)] public required string Reason { get; init; }
+    [DisplayName("What")] public required string What { get; init; }
+    [DisplayName("Kind")] public required string Kind { get; init; }
+    [DisplayName("Files"), Numeric] public required string Files { get; init; }
+    [DisplayName("Size"), Numeric] public required string Size { get; init; }
+    [DisplayName("On the backup disk it goes to")] public required string GoesTo { get; init; }
+}
+
+public sealed class BundleRowViewModel
+{
+    [Browsable(false)] public long DiskId { get; init; }
+    [Browsable(false)] public required string Root { get; init; }
+    [DisplayName("Folder")] public required string Folder { get; init; }
+    [DisplayName("Recognised as")] public required string What { get; init; }
+    [DisplayName("Files"), Numeric] public required string Files { get; init; }
+    [DisplayName("Size"), Numeric] public required string Size { get; init; }
+    [DisplayName("On the backup disk it goes to")] public required string GoesTo { get; init; }
+    [DisplayName("Disk"), ExpertOnly] public required string Disk { get; init; }
+}
+
+public sealed class JunkExampleRowViewModel
+{
+    [Browsable(false)] public long DiskId { get; init; }
+    [Browsable(false)] public required string RelativePath { get; init; }
+    [DisplayName("File")] public required string Path { get; init; }
+    [DisplayName("Size"), Numeric] public required string Size { get; init; }
+}
+
+public sealed class JunkPageViewModel
+{
+    public required string JunkSize { get; init; }
+    public required string JunkCaption { get; init; }
+    public required string KeptSize { get; init; }
+    public required string KeptCaption { get; init; }
+    public required string ReviewSize { get; init; }
+    public required string ReviewCaption { get; init; }
+    public required string Summary { get; init; }
+    public required IReadOnlyList<JunkGroupRowViewModel> Groups { get; init; }
+    public required IReadOnlyList<BundleRowViewModel> Bundles { get; init; }
+    /// <summary>Largest files per junk reason.</summary>
+    public required IReadOnlyDictionary<string, IReadOnlyList<JunkExampleRowViewModel>> Examples { get; init; }
 }
 
 // ---- Phase 2b: disk map

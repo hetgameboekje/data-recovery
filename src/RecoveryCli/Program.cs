@@ -16,6 +16,7 @@ const string Usage = """
       rtcatalog hash                           Fingerprint whatever is still pending on the disks plugged in now
       rtcatalog report [--top N]               Totals per disk: unique / duplicated / not yet decided
       rtcatalog verify [--top N]               Check that duplicates really are identical: re-read N random groups (default 20) with SHA-256
+      rtcatalog junk [--top N]                 Junk (thumbnails, icons, scraps...) and keep-together folders (servers, databases, programs)
       rtcatalog disks                          Catalogued disks and the drives plugged in now (with bus: USB/SATA/NVMe...)
       rtcatalog devices                        Physical disks: number, model, bus, HDD/SSD (needed for Linux mounts)
       rtcatalog merge <other-catalog.db>       Merge a catalog made on another PC into this one
@@ -42,6 +43,8 @@ const string Usage = """
       --allow-pending    copy: start even if some files are not fingerprinted yet (they are treated as unique)
       --verify           copy: read every copy back and compare it with the source hash (slower)
       --no-wait          copy: do not wait for an unplugged disk (default: wait up to 30 minutes for it to come back)
+      --junk <how>       aside (default): junk and reinstallable folders go to _Review, after your own files;
+                         skip: not copied (they stay on the source disks); off: no junk detection
 
     Deleting (old duplicates to make room, leftover *.rtpart files) always takes two steps:
       1. 'plan' / 'cleanup' list the files and show an approval code for exactly that list;
@@ -72,6 +75,7 @@ bool noDuplicates = false, allowPending = false, verify = false, noWait = false;
 string? approveDelete = null;
 long reserve = ConsolidateOptions.DefaultReserve;
 string? csvFile = null;
+var junkHandling = JunkHandling.SetAside;
 try
 {
     for (int i = 1; i < args.Length; i++)
@@ -94,6 +98,15 @@ try
             case "--approve-delete": approveDelete = Next(); break;
             case "--reserve": reserve = ParseSize(Next()); break;
             case "--csv": csvFile = Next(); break;
+            case "--junk":
+                junkHandling = Next().ToLowerInvariant() switch
+                {
+                    "aside" => JunkHandling.SetAside,
+                    "skip" => JunkHandling.Skip,
+                    "off" => JunkHandling.Off,
+                    var other => throw new ArgumentException($"--junk takes aside, skip or off, not '{other}'"),
+                };
+                break;
             default:
                 if (args[i].StartsWith("--")) throw new ArgumentException($"Unknown option {args[i]}");
                 positional.Add(args[i]);
@@ -185,6 +198,10 @@ try
 
         case "verify":
             RunVerify(top > 0 ? top : 20);
+            break;
+
+        case "junk":
+            RunJunk(top > 0 ? top : 10);
             break;
 
         case "plan":
@@ -290,7 +307,7 @@ try
             var eq = p.LastIndexOf('=');
             return eq > 1 ? new DestinationRequest(p[..eq], ParseSize(p[(eq + 1)..])) : new DestinationRequest(p);
         }).ToList();
-        var options = new ConsolidateOptions(destinations, !noDuplicates, reserve, allowPending, verify, approveDelete, WaitForUnplugged: !noWait);
+        var options = new ConsolidateOptions(destinations, !noDuplicates, reserve, allowPending, verify, approveDelete, WaitForUnplugged: !noWait, Junk: junkHandling);
         var service = Get<ConsolidationService>();
         Console.WriteLine($"Catalog: {catalog.Description}");
         try
@@ -338,21 +355,22 @@ try
             Row("Unique -> main folders (Photos, Videos, ...)", CopyAction.Keep),
             Row("Older versions -> _OlderVersions", CopyAction.OlderVersion),
             noDuplicates ? Row("Duplicates (switched off, not copied)", CopyAction.SkippedDuplicate) : Row("Duplicates -> _Duplicates", CopyAction.Duplicate),
+            Row("Keep-together folders -> Apps and data (whole)", CopyAction.KeepTogether),
+            junkHandling == JunkHandling.Skip ? Row("Junk / reinstallable (switched off, not copied)", CopyAction.SkippedReview)
+                                              : Row("Junk / reinstallable -> _Review", CopyAction.Review),
             Row("Already on a destination", CopyAction.AlreadyThere),
             Row("No room", CopyAction.NoRoom),
         ]);
         Console.WriteLine();
 
-        bool DupNoRoom(PlanItem i) => i.Action == CopyAction.NoRoom && i.Note == PlanNotes.DuplicateNoRoom;
-        var unique = plan.Bytes(CopyAction.Keep) + plan.Bytes(CopyAction.OlderVersion)
-                     + plan.Items.Where(i => i.Action == CopyAction.NoRoom && !DupNoRoom(i)).Sum(i => i.Size);
-        var dupes = plan.Bytes(CopyAction.Duplicate) + plan.Bytes(CopyAction.SkippedDuplicate) + plan.Items.Where(DupNoRoom).Sum(i => i.Size);
-        var usable = plan.Destinations.Sum(d => d.UsableBytes);
-        Console.WriteLine($"  {Format.Bytes(unique)} unique, {Format.Bytes(dupes)} duplicates, {plan.Files(CopyAction.OlderVersion):N0} older versions"
+        var usable = plan.UsableBytes;
+        Console.WriteLine($"  {Format.Bytes(plan.UniqueBytes)} unique, {Format.Bytes(plan.DuplicateBytes)} duplicates, "
+            + $"{Format.Bytes(plan.ReviewBytes)} junk/reinstallable, {plan.Files(CopyAction.OlderVersion):N0} older versions"
             + (plan.UniqueFits ? $" -> fits ({Format.Bytes(usable)} usable)." : $" -> DOES NOT FIT in {Format.Bytes(usable)} usable. Add an overflow disk."));
-        var dupNoRoom = plan.Items.Count(DupNoRoom);
-        if (plan.UniqueFits && dupNoRoom > 0)
-            Console.WriteLine($"  {dupNoRoom:N0} duplicates do not fit. That is fine: one copy of their content is kept.");
+        if (plan.UniqueFits && plan.DuplicatesNoRoom > 0)
+            Console.WriteLine($"  {plan.DuplicatesNoRoom:N0} duplicates do not fit. That is fine: one copy of their content is kept.");
+        if (plan.UniqueFits && plan.ReviewNoRoom > 0)
+            Console.WriteLine($"  {plan.ReviewNoRoom:N0} junk/reinstallable files do not fit. They stay on the source disks.");
         Console.WriteLine($"  To copy: {plan.FilesToCopy:N0} files, {Format.Bytes(plan.BytesToCopy)}.");
         foreach (var (disk, files, bytes) in plan.WaitingDisks)
             Console.WriteLine($"  Needs {disk.DisplayName} plugged in: {files:N0} files, {Format.Bytes(bytes)}");
@@ -372,6 +390,41 @@ try
     {
         PlanExport.WriteCsv(plan, Get<DiskService>().GetCatalogued().ToDictionary(d => d.Id, d => d.DisplayName), path);
         Console.WriteLine($"  Plan written to {Path.GetFullPath(path)}");
+    }
+
+    void RunJunk(int examples)
+    {
+        Console.WriteLine($"Catalog: {catalog.Description}");
+        Console.WriteLine("Junk and keep-together folders (rules: config/dictionaries.xml). Nothing is moved or deleted:");
+        Console.WriteLine("this only decides where 'copy' puts these files.");
+        var r = Get<JunkService>().Analyze(cts.Token);
+        var names = Get<DiskService>().GetCatalogued().ToDictionary(d => d.Id, d => d.DisplayName);
+        Console.WriteLine();
+        TablePrinter.Print(["Kind", "Reason", "Files", "Size", "Goes to"], r.Groups.Select(g => new[]
+        {
+            g.Kind switch { TagKind.Junk => "junk", TagKind.KeepTogether => "keep together", _ => "reinstallable" },
+            g.Reason, $"{g.Files:N0}", Format.Bytes(g.Bytes),
+            g.Kind == TagKind.KeepTogether ? "Apps and data\\..." : $"_Review\\{g.Reason}\\...",
+        }).ToList());
+        if (r.Bundles.Count > 0)
+        {
+            Console.WriteLine();
+            Console.WriteLine("Keep-together folders (copied whole, never split by type or deduplicated):");
+            TablePrinter.Print(["Disk", "Folder", "What", "Files", "Size"], r.Bundles.Take(Math.Max(examples, 20)).Select(b => new[]
+            {
+                names.GetValueOrDefault(b.DiskId, "?"), b.Root, b.Name + (b.Kind == TagKind.ReviewTogether ? " (to _Review)" : ""),
+                $"{b.Files:N0}", Format.Bytes(b.Bytes),
+            }).ToList());
+        }
+        foreach (var (reason, files) in r.Examples)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"{reason}: largest {Math.Min(examples, files.Count)}");
+            foreach (var f in files.Take(examples))
+                Console.WriteLine($"  {Format.Bytes(f.Size),10}  {names.GetValueOrDefault(f.DiskId, "?")}  {f.Path}");
+        }
+        if (r.UnmeasuredImages > 0)
+            Console.WriteLine($"\n{r.UnmeasuredImages:N0} pictures have no pixel size in the catalog yet, so the size rules skipped them. Run 'rtcatalog hash' with the disks plugged in.");
     }
 
     void RunVerify(int groups)
