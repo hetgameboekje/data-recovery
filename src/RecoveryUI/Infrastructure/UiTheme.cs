@@ -25,12 +25,18 @@ public static class UiTheme
         b.FlatStyle = FlatStyle.Flat;
         b.FlatAppearance.BorderSize = 0;
         b.FlatAppearance.MouseOverBackColor = AccentHover;
-        b.BackColor = Accent;
-        b.ForeColor = Color.White;
         b.Font = new Font("Segoe UI Semibold", 10f);
-        b.Cursor = Cursors.Hand;
         b.AutoSize = true;
         b.Padding = new Padding(14, 6, 14, 6);
+        // A flat button keeps its colours when disabled: grey it out explicitly, so "not yet" is visible.
+        void Paint()
+        {
+            b.BackColor = b.Enabled ? Accent : Border;
+            b.ForeColor = b.Enabled ? Color.White : Muted;
+            b.Cursor = b.Enabled ? Cursors.Hand : Cursors.Default;
+        }
+        b.EnabledChanged += (_, _) => Paint();
+        Paint();
     }
 
     public static void Secondary(Button b)

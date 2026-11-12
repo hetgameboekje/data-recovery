@@ -1,4 +1,4 @@
-namespace RecoveryUI.Views;
+﻿namespace RecoveryUI.Views;
 
 partial class HomeView
 {
@@ -134,8 +134,8 @@ partial class HomeView
         //
         // stepCopy
         //
-        stepCopy.ActionText = "Coming soon";
-        stepCopy.Description = "Copy one copy of everything to your backup disks, newest version first, duplicates aside. Planned as phase 2.";
+        stepCopy.ActionText = "Copy";
+        stepCopy.Description = "Check the plan, then copy one copy of everything to your backup disks: newest version in the main folders, duplicates aside. Source disks are only read.";
         stepCopy.Name = "stepCopy";
         stepCopy.Number = "3";
         stepCopy.Title = "Copy one clean set";

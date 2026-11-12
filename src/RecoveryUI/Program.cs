@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using RecoveryBLL;
 using RecoveryBLL.Exceptions;
 using RecoveryBLL.Interfaces;
@@ -41,18 +41,21 @@ static class Program
             .AddSingleton<IOperationLog>(log)
             .AddSingleton(log)
             .AddSingleton<OperationRunner>()
+            .AddSingleton<IDeletionConfirmer, DeletionDialogs>()
             // views (one instance each, kept alive while switching pages)
             .AddSingleton<MainForm>().AddSingleton<IMainView>(sp => sp.GetRequiredService<MainForm>())
             .AddSingleton<IHomeView, HomeView>()
             .AddSingleton<IDisksView, DisksView>()
             .AddSingleton<IScanView, ScanView>()
             .AddSingleton<IReportView, ReportView>()
+            .AddSingleton<ICopyView, CopyView>()
             .AddSingleton<ISettingsView, SettingsView>()
             // controllers
             .AddSingleton<HomeController>()
             .AddSingleton<DisksController>()
             .AddSingleton<ScanController>()
             .AddSingleton<ReportController>()
+            .AddSingleton<CopyController>()
             .AddSingleton<SettingsController>()
             .AddSingleton<MainController>()
             .BuildServiceProvider();
@@ -65,6 +68,23 @@ static class Program
         {
             MessageBox.Show(ex.Message, "Catalog database", MessageBoxButtons.OK, MessageBoxIcon.Error);
             return;
+        }
+
+        // Give back what a crashed or killed run left behind: Linux disks are unmounted (written to the log).
+        // Half-written copies are only deleted after both steps (two dialogs, both defaulting to "No").
+        try
+        {
+            var runState = services.GetRequiredService<RunStateService>();
+            var cleanup = runState.ReleaseStale();
+            if (cleanup.Problems.Count > 0)
+                MessageBox.Show(string.Join("\n\n", cleanup.Problems), "Left behind by an earlier run", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            if (!cleanup.Leftovers.IsEmpty
+                && DeletionDialogs.ApproveList(cleanup.Leftovers, "An interrupted copy left half-written files behind. They are harmless, but take space."))
+                runState.DeleteLeftovers(null, cleanup.Leftovers.Code);
+        }
+        catch (RecoveryServiceException ex)
+        {
+            log.Warn(ex.Message);
         }
 
         var form = services.GetRequiredService<MainForm>();

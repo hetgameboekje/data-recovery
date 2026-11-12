@@ -1,4 +1,4 @@
-using RecoveryBLL.Services;
+﻿using RecoveryBLL.Services;
 using RecoveryUI.Infrastructure;
 using RecoveryUI.ViewModels;
 using RecoveryUI.Views;
@@ -8,11 +8,11 @@ namespace RecoveryUI.Controllers;
 /// <summary>Navigation, Simple/Expert mode, the shared busy state and the live log.</summary>
 public sealed class MainController(
     IMainView main, OperationRunner runner, UiLog log, CatalogService catalog,
-    HomeController home, DisksController disks, ScanController scan, ReportController report, SettingsController settings)
+    HomeController home, DisksController disks, ScanController scan, ReportController report, CopyController copy, SettingsController settings)
 {
     readonly Dictionary<Page, IPageController> pages = new()
     {
-        [Page.Home] = home, [Page.Disks] = disks, [Page.Scan] = scan, [Page.Report] = report, [Page.Settings] = settings,
+        [Page.Home] = home, [Page.Disks] = disks, [Page.Scan] = scan, [Page.Report] = report, [Page.Copy] = copy, [Page.Settings] = settings,
     };
     bool expert;
 
@@ -22,6 +22,7 @@ public sealed class MainController(
         disks.Attach();
         scan.Attach();
         report.Attach();
+        copy.Attach();
         settings.Attach();
 
         main.NavigateRequested += (_, p) => Navigate(p);

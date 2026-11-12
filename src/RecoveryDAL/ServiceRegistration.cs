@@ -27,6 +27,7 @@ public static class ServiceRegistration
                 services.AddTransient<IFileRepository, SqliteFileRepository>();
                 services.AddTransient<IReportRepository, SqliteReportRepository>();
                 services.AddTransient<ICatalogExchange, SqliteCatalogExchange>();
+                services.AddTransient<IConsolidationRepository, SqliteConsolidationRepository>();
                 break;
             case DatabaseProvider.SqlServer:
                 services.AddSingleton(new SqlServerDb(settings.ConnectionString));
@@ -35,6 +36,7 @@ public static class ServiceRegistration
                 services.AddTransient<IFileRepository, SqlServerFileRepository>();
                 services.AddTransient<IReportRepository, SqlServerReportRepository>();
                 services.AddTransient<ICatalogExchange, SqlServerCatalogExchange>();
+                services.AddTransient<IConsolidationRepository, SqlServerConsolidationRepository>();
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(settings), settings.Provider, "Unknown database provider");
@@ -45,7 +47,12 @@ public static class ServiceRegistration
         services.AddSingleton<IVolumeProvider, WindowsVolumeProvider>();
         services.AddSingleton<IPhysicalDeviceProvider, WindowsPhysicalDeviceProvider>();
         services.AddSingleton<IFileSystemWalker, FileSystemWalker>();
-        services.AddSingleton<IFileContentReader, FileContentReader>();
+        services.AddSingleton<IFileContentReader>(new FileContentReader());
+        services.AddSingleton<IKeepAwake, KeepAwake>();
+        services.AddSingleton<IFileStore, FileStore>();
+        services.AddSingleton<IProtectedLocations, WindowsProtectedLocations>();
+        services.AddSingleton<IRunStateStore>(new RunStateFile(settings.LogDirectory));
+        services.AddSingleton<IProcessInfo, ProcessInfo>();
         services.AddSingleton<IWslGateway, WslGateway>();
         services.AddSingleton<IElevationInfo, WindowsElevationInfo>();
         return services;

@@ -67,3 +67,52 @@ public interface IElevationInfo
 {
     bool IsElevated { get; }
 }
+
+/// <summary>
+/// Writing to the destination disks (phase 2). Copies are written to a temporary ".rtpart" file and renamed
+/// when complete, so an interrupted copy never looks like a finished file.
+/// </summary>
+public interface IFileStore
+{
+    /// <summary>Creates parent folders and opens a new (or truncated) file for writing.</summary>
+    Stream CreateTemp(string fullPath);
+    /// <summary>Called after the stream is closed: sets the modified time and renames. Never overwrites an existing file.</summary>
+    void Commit(string tempPath, string finalPath, long mtimeTicksUtc);
+    bool Exists(string fullPath);
+    /// <summary>Modified time (UTC ticks) as the file system stores it.</summary>
+    long LastWriteTicks(string fullPath);
+    long Length(string fullPath);
+    void Delete(string fullPath);
+    /// <summary>Half-written copies (*.rtpart) under a folder. Links are not followed; unreadable folders are skipped.</summary>
+    IReadOnlyList<string> FindTemps(string folder);
+}
+
+/// <summary>
+/// Folders the toolkit must never scan or write to, because doing so can harm or stall Windows
+/// (Windows, Program Files, ProgramData, every user's AppData, ...). Implemented per OS in the DAL.
+/// </summary>
+public interface IProtectedLocations
+{
+    /// <summary>Root of the drive Windows runs from, e.g. "C:\".</summary>
+    string SystemDrive { get; }
+    /// <summary>Nothing inside these may be used, and no folder that contains one of them either.</summary>
+    IReadOnlyList<string> NoGoFolders { get; }
+    /// <summary>Full path with short (8.3) names expanded, links/junctions resolved and no trailing separator (except a root).</summary>
+    string Normalize(string path);
+}
+
+/// <summary>The run-state journal (which runs hold which mounts/destinations). Shared by every process on this PC.</summary>
+public interface IRunStateStore
+{
+    string Location { get; }
+    /// <summary>Atomic read-modify-write under a lock. <paramref name="change"/> edits the list in place.</summary>
+    IReadOnlyList<RunLease> Update(Action<List<RunLease>> change);
+}
+
+public interface IProcessInfo
+{
+    int CurrentId { get; }
+    long CurrentStartTicks { get; }
+    /// <summary>True if that process (same id AND same start time) is still running. Unknown counts as alive.</summary>
+    bool IsAlive(int processId, long startTicks);
+}

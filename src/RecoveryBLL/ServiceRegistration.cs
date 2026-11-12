@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using RecoveryBLL.Interfaces;
 using RecoveryBLL.Services;
 
 namespace RecoveryBLL;
@@ -16,6 +17,9 @@ public static class ServiceRegistration
         services.AddTransient<ReportService>();
         services.AddTransient<MergeService>();
         services.AddTransient<LinuxDiskService>();
+        services.AddTransient<ConsolidationService>();
+        services.AddSingleton<RunStateService>();
+        services.AddSingleton<IDeletionConfirmer, RefuseAllDeletions>();   // frontends register their own (step 2 of every deletion)
         return services;
     }
 }

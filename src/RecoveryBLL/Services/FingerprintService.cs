@@ -18,8 +18,11 @@ public sealed class FingerprintService(
     IFileRepository files,
     IFileContentReader reader,
     DictionaryService dictionaries,
+    IKeepAwake keepAwake,
     IOperationLog log)
 {
+    const int FailingDiskTimeouts = 3;
+
     const int FlushEvery = 500;
 
     public IReadOnlyList<StageResult> Run(FingerprintOptions options, IProgress<ProgressInfo>? progress,
@@ -27,6 +30,7 @@ public sealed class FingerprintService(
     {
         var roots = disks.GetMountedRoots().Where(kv => onlyDisks == null || onlyDisks.Contains(kv.Key)).ToDictionary();
         var results = new List<StageResult>();
+        using var awake = keepAwake.Begin("Recovery Toolkit is fingerprinting files");
         if (roots.Count == 0)
         {
             log.Info("None of the catalogued disks are plugged in; nothing to fingerprint.");
@@ -84,6 +88,8 @@ public sealed class FingerprintService(
         log.Info($"{name}: {total:N0} files on {perDisk.Count} disk(s)" + (totalBytes > 0 ? $", {Format.Bytes(totalBytes)} to read" : ""));
 
         long done = 0, bytes = 0, errors = 0, lastReport = 0;
+        var gone = new System.Collections.Concurrent.ConcurrentDictionary<long, byte>();      // unplugged or failing disks
+        var timeouts = new System.Collections.Concurrent.ConcurrentDictionary<long, int>();
         var sw = Stopwatch.StartNew();
         var pending = new List<FingerprintResultDto>();
         var gate = new object();
@@ -108,7 +114,7 @@ public sealed class FingerprintService(
             var root = roots[kv.Key];
             Parallel.ForEach(kv.Value, new ParallelOptions { MaxDegreeOfParallelism = threads[kv.Key] }, (job, state) =>
             {
-                if (ct.IsCancellationRequested) { state.Stop(); return; }
+                if (ct.IsCancellationRequested || gone.ContainsKey(kv.Key)) { state.Stop(); return; }
                 var path = Path.Combine(root, job.Path);
                 FingerprintResultDto r;
                 long read = 0;
@@ -118,15 +124,33 @@ public sealed class FingerprintService(
                     r = work(job, s);
                     read = plannedBytes(job);
                 }
-                catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
-                {
-                    r = new FingerprintResultDto { Id = job.Id, Kind = FingerprintResultKind.Missing };
-                }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    Interlocked.Increment(ref errors);
-                    log.Warn($"{name}: {path}: {ex.Message}");
-                    r = new FingerprintResultDto { Id = job.Id, Kind = FingerprintResultKind.Error, Error = $"{name}: {ex.Message}" };
+                    // Unplugged (or the letter went away): record NOTHING for this file. Otherwise every remaining file
+                    // would be flagged missing or unreadable and skipped forever. Stop this disk; the rest continues.
+                    if (!Directory.Exists(root))
+                    {
+                        if (gone.TryAdd(kv.Key, 0))
+                            log.Warn($"{name}: {root} disappeared (unplugged?). Its files keep their state; plug it in and run 'hash' again.");
+                        state.Stop();
+                        return;
+                    }
+                    if (ex is FileNotFoundException or DirectoryNotFoundException)
+                        r = new FingerprintResultDto { Id = job.Id, Kind = FingerprintResultKind.Missing };
+                    else
+                    {
+                        Interlocked.Increment(ref errors);
+                        log.Warn($"{name}: {path}: {ex.Message}");
+                        r = new FingerprintResultDto { Id = job.Id, Kind = FingerprintResultKind.Error, Error = $"{name}: {ex.Message}" };
+                        // A disk whose reads keep hanging is probably failing: stop hammering it.
+                        if (ex is Exceptions.ReadTimeoutException && timeouts.AddOrUpdate(kv.Key, 1, (_, n) => n + 1) >= FailingDiskTimeouts)
+                        {
+                            if (gone.TryAdd(kv.Key, 1))
+                                log.Warn($"{name}: {root} keeps timing out on reads. The disk may be failing: stop using it, " +
+                                         "make a sector image first (old toolkit: Disk tools > Imaging), then catalog the image.");
+                            state.Stop();
+                        }
+                    }
                 }
                 var d = Interlocked.Increment(ref done);
                 var b = Interlocked.Add(ref bytes, read);
@@ -140,7 +164,7 @@ public sealed class FingerprintService(
         });
         Flush(true);
         progress?.Report(new ProgressInfo(name, done, total, bytes, totalBytes, sw.Elapsed));
-        bool completed = !ct.IsCancellationRequested;
+        bool completed = !ct.IsCancellationRequested && gone.IsEmpty;
         if (!completed) log.Info($"{name}: stopped. Run it again to continue where it left off.");
         return new StageResult(name, done, bytes, errors, completed);
     }

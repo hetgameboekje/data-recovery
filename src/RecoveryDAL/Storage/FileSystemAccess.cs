@@ -50,11 +50,16 @@ public sealed class FileSystemWalker : IFileSystemWalker
     }
 }
 
-public sealed class FileContentReader : IFileContentReader
+/// <summary>Reads source files. Every read has a deadline (<see cref="TimeoutStream"/>) so a failing disk cannot hang a run.</summary>
+public sealed class FileContentReader(TimeSpan? readTimeout = null) : IFileContentReader
 {
+    public static readonly TimeSpan DefaultReadTimeout = TimeSpan.FromSeconds(60);
+
     public Stream OpenRead(string fullPath, bool sequential) =>
-        new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete,
-                       bufferSize: 1, sequential ? FileOptions.SequentialScan : FileOptions.RandomAccess);
+        new TimeoutStream(
+            new FileStream(fullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, bufferSize: 1,
+                           (sequential ? FileOptions.SequentialScan : FileOptions.RandomAccess) | FileOptions.Asynchronous),
+            readTimeout ?? DefaultReadTimeout, fullPath);
 }
 
 public sealed class WindowsElevationInfo : RecoveryBLL.Interfaces.IElevationInfo

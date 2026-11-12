@@ -7,7 +7,7 @@ namespace RecoveryDAL.SqlServer;
 /// <summary>Same classification as the SQLite version (see SqliteReportRepository), in T-SQL.</summary>
 public sealed class SqlServerReportRepository(SqlServerDb db) : IReportRepository
 {
-    const string Classified = """
+    internal const string Classified = """
         WITH f AS (
             SELECT id, disk_id, size, media_type, quick_hash, full_hash,
                    COUNT_BIG(*) OVER (PARTITION BY size) AS n_size,

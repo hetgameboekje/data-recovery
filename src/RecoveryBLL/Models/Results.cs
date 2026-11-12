@@ -9,7 +9,8 @@ public sealed record ProgressInfo(string Stage, long Done, long Total, long Byte
     public double BytesPerSecond => Elapsed.TotalSeconds > 0 ? Bytes / Elapsed.TotalSeconds : 0;
 }
 
-public sealed record ScanRequest(string Path, IReadOnlyCollection<string> Excludes, VolumeIdentity? IdentityOverride = null);
+/// <summary><see cref="IsDestination"/>: catalogued as a copy destination (written to later) rather than a source to recover from.</summary>
+public sealed record ScanRequest(string Path, IReadOnlyCollection<string> Excludes, VolumeIdentity? IdentityOverride = null, bool IsDestination = false);
 
 public sealed record ScanResult(string Path, long DiskId, long Files, long Bytes, long FolderErrors, int MarkedMissing, bool Completed);
 

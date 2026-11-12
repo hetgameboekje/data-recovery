@@ -75,3 +75,26 @@ public interface ISettingsView : IPageView
     void ShowSettings(SettingsViewModel vm);
     string? PickCatalogFile();
 }
+
+/// <summary>Phase 2: choose destinations, check the plan (dry run), copy. Deletions need both steps (review + final dialog).</summary>
+public interface ICopyView : IPageView
+{
+    event EventHandler? PlanRequested;
+    event EventHandler? StartRequested;
+    event EventHandler? StopRequested;
+    event EventHandler? ReviewDeletionsRequested;
+    event EventHandler? ExportRequested;
+    event EventHandler? RefreshDrivesRequested;
+    /// <summary>Destinations or options changed: the plan shown is no longer valid.</summary>
+    event EventHandler? SettingsChanged;
+    IReadOnlyList<DestinationChoiceViewModel> Destinations { get; }
+    CopyOptionsViewModel Options { get; }
+    void ShowDrives(IReadOnlyList<DriveRowViewModel> drives);
+    void ShowPlan(CopyPlanViewModel? plan);
+    void SetDeletionApproval(string text, bool approved);
+    void SetRunning(bool running);
+    void ShowProgress(ProgressViewModel progress);
+    void ShowResult(string text, bool success);
+    string? PickCsvFile();
+    bool Confirm(string title, string message);
+}

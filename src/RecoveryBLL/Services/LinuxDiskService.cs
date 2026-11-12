@@ -9,7 +9,7 @@ namespace RecoveryBLL.Services;
 /// The partition is mounted READ-ONLY, then scanned like any folder. The catalog identifies it by its
 /// filesystem UUID, because Windows reports the same "volume" for every path under \\wsl.localhost.
 /// </summary>
-public sealed class LinuxDiskService(IWslGateway wsl, IElevationInfo elevation, DiskService disks, IOperationLog log)
+public sealed class LinuxDiskService(IWslGateway wsl, IElevationInfo elevation, DiskService disks, RunStateService runState, IOperationLog log)
 {
     public static readonly string[] SupportedFileSystems = ["ext4", "ext3", "ext2", "btrfs", "xfs"];
 
@@ -28,10 +28,13 @@ public sealed class LinuxDiskService(IWslGateway wsl, IElevationInfo elevation, 
         if (!elevation.IsElevated)
             throw new RecoveryServiceException("Mounting a Linux disk needs administrator rights. Start the toolkit as administrator.");
 
+        // Journal first: if this process dies while the disk is attached, the next start unmounts it.
+        runState.Hold(LeaseKind.WslMount, diskNumber.ToString());
         string path;
         try { path = wsl.MountReadOnly(diskNumber, partition, fileSystem); }
         catch (Exception ex) when (ex is IOException or InvalidOperationException)
         {
+            runState.Release(LeaseKind.WslMount, diskNumber.ToString());
             throw new RecoveryServiceException($"wsl --mount failed: {ex.Message}", ex);
         }
 
@@ -50,6 +53,7 @@ public sealed class LinuxDiskService(IWslGateway wsl, IElevationInfo elevation, 
         {
             throw new RecoveryServiceException($"wsl --unmount failed: {ex.Message}", ex);
         }
+        runState.Release(LeaseKind.WslMount, mount.DiskNumber.ToString());
         var id = disks.EnsureDisk(mount.Identity);
         disks.RemoveExtraRoot(id);
         log.Info($"Unmounted PhysicalDrive{mount.DiskNumber}");

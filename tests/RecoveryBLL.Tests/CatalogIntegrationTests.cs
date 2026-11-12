@@ -1,4 +1,3 @@
-using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.DependencyInjection;
 using RecoveryBLL.Exceptions;
 using RecoveryBLL.Interfaces;
@@ -120,32 +119,16 @@ public class CatalogIntegrationTests
     public void Sql_server_provider_gives_the_same_result()
     {
         if (Environment.GetEnvironmentVariable("RT_TEST_SQLSERVER") is not { Length: > 0 }) return;
-        var dbName = "RtTest_" + Guid.NewGuid().ToString("N")[..8];
-        var cs = $@"Server=(localdb)\MSSQLLocalDB;Database={dbName};Trusted_Connection=True;TrustServerCertificate=True";
         using var d = new TempDir();
         MakeTestFiles(d);
-        try
+        TestHost.WithLocalDb(d, sp =>
         {
-            using var sp = TestHost.Create(d.Path, new ListLog(), new AppSettings
-            {
-                Provider = DatabaseProvider.SqlServer, ConnectionString = cs, SafeConnectionDescription = "test",
-                DictionariesFile = TestHost.DictionariesFile, LogDirectory = d.Path,
-            });
             var r = sp.GetRequiredService<ScanService>().Scan(new ScanRequest(Path.Combine(d.Path, "src"), []), null, CancellationToken.None);
             sp.GetRequiredService<FingerprintService>().Run(new FingerprintOptions(), null, CancellationToken.None, new HashSet<long> { r.DiskId });
             var report = sp.GetRequiredService<ReportService>().GetReport();
             Assert.Equal(300_000 + 5000, report.RedundantBytes);
             Assert.Equal(0, report.PendingBytes);
-        }
-        finally
-        {
-            SqlConnection.ClearAllPools();
-            using var c = new SqlConnection(@"Server=(localdb)\MSSQLLocalDB;Database=master;Trusted_Connection=True;TrustServerCertificate=True");
-            c.Open();
-            using var cmd = c.CreateCommand();
-            cmd.CommandText = $"IF DB_ID('{dbName}') IS NOT NULL BEGIN ALTER DATABASE [{dbName}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{dbName}]; END";
-            cmd.ExecuteNonQuery();
-        }
+        });
     }
 }
 

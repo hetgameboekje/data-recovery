@@ -90,6 +90,13 @@ This file records the requests and questions so far, the current PowerShell tool
 ### 2026-11-12: "Visualise the bad sectors of a disk"
 - Added as **Phase 5b: Surface scan and bad-sector map**, with a block grid of read speed and errors, SMART data, and which files sit on damaged areas. See section 5.
 
+### 2026-11-12: "Never run on crucial folders (AppData, Users, C:\ itself); free locked places after a failure; check for crucial points"
+- Built: protected folders for every scan and destination, a run-state journal that frees what a crashed run held, and fixes from a risk review. See section 3.6 (what was built) and 3.7 (the review, including what is still open).
+
+### 2026-11-12: "Make the unplug system and the rest; deleting always needs a 2-step verification"
+- Built: two-step verification for every deletion (3.6), unplug handling for scan, hash and copy (3.8), and risk items 11–14 (3.7): catalog on a source disk is refused, the PC stays awake, reads have a deadline, long paths are reported.
+- Interpretation of "2-step verification": (1) approve the exact list by its code, (2) confirm by typing `DELETE` (or a second dialog), then an automatic re-check of each file.
+
 ---
 
 ## 2. Current setup: PowerShell RecoveryToolkit (`file management` version)
@@ -170,7 +177,7 @@ This follows the pattern of [AccomodatieSOLID](https://github.com/hetgameboekje/
  RecoveryDAL  (net10.0-windows)                                      <- data access
    Sqlite/*      SqlServer/*      Xml/XmlDictionaryRepository (DOM)   Configuration/(.env)
    Storage/ WindowsVolumeProvider, WindowsPhysicalDeviceProvider (IOCTL), FileSystemWalker, WslGateway
- tests/RecoveryBLL.Tests (xUnit): 25 tests, including the full pipeline on SQLite and on SQL Server LocalDB
+ tests/RecoveryBLL.Tests (xUnit): 68 tests, including the full pipeline and the copy plan on SQLite and on SQL Server LocalDB
 ```
 
 | SOLID | Where |
@@ -231,6 +238,81 @@ This follows the pattern of [AccomodatieSOLID](https://github.com/hetgameboekje/
 - **Disk health** (Phase 5b): a grid of coloured blocks showing how fast each part of the disk reads and where it fails, with a plain verdict on top ("Healthy" / "Weak spots" / "Failing: copy your data first").
 - **Coming next** (planned phases) is visible but greyed out in the sidebar, with a tooltip per phase.
 
+### 3.6 Safety: protected folders and crash recovery (built 2026-11-12)
+**Protected folders** (`PathSafetyValidator` in the BLL, the list from `WindowsProtectedLocations` in the DAL). Checked for every scan source and every copy destination, in the CLI and the desktop app:
+- **The Windows drive as a whole is refused** (`C:\`, also typed as `C:`). Only a subfolder may be used, e.g. `C:\Recovery` or `C:\Users\<name>\Pictures`.
+- **Never used, nor anything inside them:** Windows, Program Files (both), ProgramData, **every user's AppData**, Default/All Users profiles, Recovery, System Volume Information, `$Recycle.Bin`, `$WinREAgent`, `$Windows.~BT/~WS`, `$SysReset`, Config.Msi, Boot.
+- **A folder that contains one of those is refused as a whole:** `C:\Users`, `C:\Users\<name>`. Their subfolders (Pictures, Documents, Desktop…) are fine.
+- Other drives (`D:\`, `H:\`) may be used whole. Network paths are refused (not supported yet).
+- Paths are normalised first, so tricks don't get past it: `C:\PROGRA~1` (8.3 names), the `C:\Documents and Settings` junction, `..`, `\\?\` prefixes.
+- The list is built from the real system (Windows folder, profile locations), not hard-coded to `C:`.
+- WSL mounts (`\\wsl.localhost\...`) are exempt; they carry their own identity and are read-only.
+
+**Keeping Windows usable while copying:**
+- A destination on the Windows drive keeps **at least 20 GB free** (`ConsolidateOptions.SystemDriveMinFree`) instead of 1 GB, and the plan warns that a separate disk is safer.
+- `plan` catalogs **only the destination folder**, not its whole volume (before, `C:\Recovery` would have meant scanning all of C:).
+
+**Freeing what a failed run held** (`RunStateService` + journal `run-state.json` next to the logs):
+- Before a run takes something, it writes it to the journal with its process id and start time:
+  - **WSL mounts** (`wsl --mount`): if the run dies, the Linux disk stays attached and Windows can't use it.
+  - **Copy destinations**: a killed copy leaves `*.rtpart` files behind.
+- **At every start** (rtcatalog and the desktop app), entries whose process is gone are freed: the Linux disk is unmounted, and leftover `*.rtpart` files are **listed, not deleted** (deleting needs the two steps below). Unmounting needs administrator rights. Without them, the entry stays in the journal and the exact `wsl --unmount` command is shown. A destination stays in the journal as a reminder until its leftovers are gone.
+- **`rtcatalog cleanup [folder ...]`** shows the same on request, shows what live runs still hold, and can list leftover `*.rtpart` files in a folder the journal doesn't know. A live run's `.rtpart` files are never offered.
+- **Two runs can't write the same destination** (e.g. the app and rtcatalog at once). The second one is refused with the process id of the first.
+- Robustness:
+  - A lock file serialises the journal (deleted when its process ends).
+  - The JSON is replaced atomically.
+  - A damaged journal is set aside instead of blocking the toolkit.
+  - A reused process id is detected through the start time.
+
+**Every deletion needs two-step verification** (built 2026-11-12; `DeletionBatch`, `IDeletionConfirmer`):
+1. **Approve the exact list.** `plan` (old duplicates to make room) and `cleanup` (leftover `*.rtpart`) show what would be deleted, why, and a 6-character **approval code** computed from those paths and sizes. The deletion runs only with `--approve-delete <code>`. If anything in the list changed (another file, another size), the code no longer matches and nothing is deleted.
+2. **Final confirmation, right before deleting.** In the console you have to type `DELETE`. Input from a script or pipe is refused, so it always needs a person at the keyboard. In the desktop app there are two separate dialogs, both defaulting to "No".
+3. Then the toolkit **re-checks each file** just before removing it. Old duplicates: the file is unchanged and its kept copy is still there with the same size. Leftovers: still a `.rtpart`, unchanged, and no live run writing there.
+- Without approval nothing is deleted, and the copy simply goes on: files that needed that room wait for the next run.
+- Without a frontend confirmer (e.g. a new tool), the default `RefuseAllDeletions` deletes nothing.
+- One exception, by design: a `.rtpart` that the **same run just wrote** is removed when that copy fails or is stopped. It is the run's own half-file, never user data.
+
+### 3.7 Risk review (2026-11-12)
+**Fixed in this round:**
+
+| # | Risk | What could happen | Fix |
+|---|---|---|---|
+| 1 | Scan or destination on `C:\`, AppData, Windows, Program Files | Scanning reads every locked system file and stalls the PC; writing there can break programs or Windows | 3.6 protected folders |
+| 2 | `plan` scanned the whole destination volume | A destination such as `C:\Recovery` meant cataloguing all of C: | Only the destination folder is scanned |
+| 3 | Copy fills the Windows drive | Windows can't update, page or write temp files and becomes unusable | 20 GB minimum free on the system drive |
+| 4 | WSL mount left attached after a crash or kill | The Linux disk stays locked by WSL until it is unmounted by hand | Journal + automatic unmount at start |
+| 5 | `*.rtpart` files left after a kill or power loss | Wasted space, confusing half-files | Listed at the next start; deleted with the two-step check (`cleanup`) |
+| 6 | Two runs writing one destination | Both pick the same names; the space calculations are wrong | Destination lease; the second run is refused |
+| 7 | Eviction while the kept copy was removed between plan and copy | The last copy of a file would be deleted | Kept copy re-checked (exists, same size) right before deleting |
+| 8 | Disk unplugged during scan, hash or copy | Copy: an error per remaining file. Hash: every remaining file marked missing/unreadable for good | 3.8: wait and continue (copy), stop that disk without touching its files (hash) |
+| 9 | exFAT/FAT destinations round modified times | The next `plan` sees every copied file as "changed" and re-reads all of it | The catalog records the time as the destination stores it |
+| 10 | A deletion runs without a person seeing it | Data loss through a wrong plan or a script | Two-step verification for every deletion (3.6) |
+| 11 | **Catalog on a source disk** | Writing `catalog.db`, logs or the journal to a disk being recovered can overwrite deleted files that could still be undeleted | Scanning that disk is **refused**, with how to move the catalog (`DB_CONNECTION`/`LOG_DIR`/`--db`). On the Windows drive (written to all the time anyway) it is a warning not to recover *deleted* files from it. |
+| 12 | **Sleep during a long run** (it happened once, section 1) | The run stops halfway | Scan, hash and copy keep the PC awake (`SetThreadExecutionState`; the screen may still turn off) |
+| 13 | **Failing source disk:** a read on a bad sector hangs for minutes | The run hangs | Every read has a 60 s deadline. The file then gets a "read timeout" error. After 3 timeouts on one disk, that disk is skipped with the advice to image it first |
+| 14 | **Paths over 260 characters** | Explorer and older tools can't open the copy | Copying them works (tested). `plan` warns with the count |
+
+**Still open, most important first:**
+1. **Windows Update restarts** can't be blocked by an app. Runs continue safely after one (resume, journal, `.rtpart`), but pause updates before long runs (section 6). Possible later: warn at the start of a copy when a restart is pending.
+2. **Shared SQL Server catalog on several PCs** (Phase 8/9). Not reachable today: destinations must be local disks (network paths are refused), so two PCs can't write the same destination. When network destinations come (Phase 9), the destination lease must move into the shared catalog or the destination itself, with a heartbeat.
+3. **A failing disk can still hang inside the driver.** The 60 s deadline cancels the read (`CancelIoEx`), but some USB bridges only give up after their own retries. Imaging first stays the advice for disks with SMART warnings (Phase 5b).
+4. **Memory:** the plan holds the whole catalog in memory (about 200–300 MB per million files). Fine for now; could stream per disk later.
+5. **Destination on the Windows drive:** anything catalogued earlier elsewhere on C: counts as "already there" and isn't copied into the destination. That's correct for a backup *on* C:, but another reason to use separate backup disks.
+6. **Not yet tested on real hardware:** pulling a real USB disk during a copy, a real bad-sector timeout, and the refusal for a catalog on a non-Windows source disk (the tests simulate these).
+
+### 3.8 Unplugged disks (built 2026-11-12)
+Disks are recognised by their identity (volume serial + size), never by drive letter, so a disk may come back on any port under another letter.
+
+| When | Unplugged disk | What happens |
+|---|---|---|
+| Scan | the disk being scanned | What was listed is kept. Nothing is marked as deleted (an incomplete walk never marks files missing). Scan again later. |
+| Fingerprint | a source disk | That disk stops; **its files keep their state**. Before, every remaining file would have been marked "missing" or "unreadable" and skipped for good. Other disks continue; `hash` finishes it later. |
+| Copy | a source or destination disk | The copy **pauses and waits** (default 30 minutes; `--no-wait` skips the disk instead) with a message to plug it back in. When it is back, under any letter, the interrupted file is copied again and the run continues. If it doesn't come back, its files wait for the next run. |
+| Copy | a destination comes back with another letter | The new letter is used for the rest of the run. |
+| End of a copy | – | "Safe to unplug": every copy was flushed to the disk (`Flush(true)`) before it was renamed, so nothing sits in a cache. |
+| Crash while a Linux disk is mounted | – | Unmounted at the next start (3.6). |
+
 ---
 
 ## 4. Core idea: catalog first, copy later
@@ -269,6 +351,29 @@ Nothing is copied until **every** disk has been read and fingerprinted. You then
 - `--threads auto` is now the default: 1 reader for an HDD, more for an SSD/NVMe, based on the bus.
 
 ### Phase 2: Consolidate (copy plan)
+> **Built 2026-11-12** (BLL/DAL/CLI): `rtcatalog plan <main> [overflow ...]` (dry run) and `rtcatalog copy ...`.
+> `ConsolidationPlanner` (pure, from the catalog only) + `ConsolidationService` (catalogs the destinations, fingerprints what is open, copies).
+> Tested on SQLite and SQL Server LocalDB.
+> **Desktop app "Copy" page built 2026-11-12** (`CopyView` + `CopyController`; replaces the greyed "Copy plan" entry; Home step 3 opens it):
+> - **1 Destinations:** pick a drive or type/paste a folder path, or browse. The order is the priority (the first is "Main", the rest "Overflow"), with Move up/down. Expert mode: a size cap per destination.
+> - **2 Check the plan** (dry run): four tiles (will be copied / unique / duplicates / already there), one verdict sentence (fits / does not fit / nothing left), a destinations table and notes (pending files, unplugged sources, same-disk files, Windows drive, long paths). Expert mode: options (duplicates, verify, wait for unplugged disks, allow pending, space kept free) and "Save the full list (CSV)". The CSV writer is shared with the CLI (`PlanExport`).
+> - **Deletions in the app:** "Review and approve the deletions…" is step 1 (shows the exact list). Step 2 is a second dialog that the copy shows right before deleting (on the UI thread). Changing a destination or option discards the plan and the approval.
+> - **3 Copy:** a confirmation with the destinations, then progress, Stop, and a result summary (copied, removed, not approved, waiting for a disk, no room, errors, failing disks). The plan is cleared afterwards; checking again shows what is left.
+> - Checked by launching the app with a demo catalog and walking through it with UI Automation (screenshots). Not yet done in the app with real disks: a full copy and the step-2 dialog.
+> - Found while testing: a destination folder on the same disk as the sources gave "nothing to copy" without explanation. The plan now says how many files are on the destination's own disk and why they are not copied again.
+>
+> How the details were settled:
+> - **Layout:** main = `<Category>\<original path>` (the category is not repeated when the path already starts with it);
+>   `_OlderVersions\<disk>\<original path>` and `_Duplicates\<disk>\<original path>`, where `<disk>` = label_serial.
+> - **"Same name"** means the same folder + name (the same main path), not just the same file name, so two different `IMG_0001.JPG`s from different folders are both kept normally.
+> - **Which identical copy is kept:** the oldest modified time (closest to the original), then the shortest path.
+> - **"Already there":** the content (full hash) is anywhere on a destination disk. Each destination volume is catalogued completely by `plan`.
+> - **Destination already holds the main path with other content:** if ours is older it goes to `_OlderVersions`; if newer, it is kept next to it as `name (2).ext`. Nothing on a destination is overwritten.
+> - **Space:** destinations are filled in the given order (1 GB reserve each, `=size` caps one, FAT32 4 GB limit). Unique files first; duplicates only in what is left.
+> - **Eviction:** old `_Duplicates` files are removed (oldest first) only for a unique file that fits nowhere else, and only when the same content is kept on a destination outside `_Duplicates`.
+> - **Not fingerprinted yet:** `copy` refuses (pending files can't be told apart from duplicates) unless `--allow-pending`.
+> - **Resume:** copies go to `name.rtpart`, are checked against the catalog hash (optionally read back with `--verify`), keep their modified time, then are renamed and recorded in the catalog. A re-run sees them as "already there". Files on unplugged source disks wait for the next run.
+
 Each file gets one of four labels:
 1. **Unique** → main folders (Photos/Videos/…) on the backup disk, then the overflow disk.
 2. **100% identical to a file already kept** → `_Duplicates` folder. Switch: move there / skip entirely.
@@ -530,5 +635,9 @@ Already available in this setup: `code-review`, `code-simplifier`, `engineering`
 - **Override folder (Phase 9):** confirm that it means "files that are safe elsewhere or not worth keeping, which may be cleared first when space runs out" (uploaded, duplicates, unrecoverable).
 - Disk map (Phase 2b): keep the order (after Phase 2) or build it earlier as a quick visual check of the catalog?
 - Bad-sector map (Phase 5b): block size default (≈1,024 blocks per disk, or a fixed size such as 256 MB?), and the colour thresholds for "slow" and "very slow" (proposal: > 50 ms and > 300 ms per 1 MB read on an HDD).
-- Test the WSL ext4 mount on a real Linux disk, as administrator.
-- Next step: catalog every disk (UI "Catalog disks" or `rtcatalog scan`), including the other PC (merge, or point it at one SQL Server). Then build Phase 2 (copy plan + dry-run report).
+- Test the WSL ext4 mount on a real Linux disk, as administrator (also: kill the run while mounted, then check the automatic unmount at the next start).
+- ~~Risk review items: catalog on a source disk, keep the PC awake, unplugging, two-step deletion~~: built (3.6–3.8).
+- Real-hardware checks (3.7 open item 6): pull a USB source and a destination during `copy` and plug them into another port; put `catalog.db` on a USB disk and try to scan that disk (must be refused).
+- ~~Build Phase 2 (copy plan + dry-run report)~~: done in the CLI and the desktop app ("Copy" page).
+- Next to build: Phase 2b (disk map), unless Phase 3 (junk detection) is wanted first. Section 9 still asks whether the disk map should come earlier.
+- Next step for the data: catalog every disk (UI "Catalog disks" or `rtcatalog scan`), including the other PC, then `rtcatalog plan <2 TB disk> <1 TB disk>` and check the plan before `copy`.

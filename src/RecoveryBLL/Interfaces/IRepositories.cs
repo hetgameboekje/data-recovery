@@ -9,6 +9,8 @@ namespace RecoveryBLL.Interfaces;
 public interface ICatalogStore
 {
     string Description { get; }
+    /// <summary>The catalog file on this PC (SQLite), or null for a server database.</summary>
+    string? LocalFile => null;
     void EnsureCreated();
 }
 
@@ -57,4 +59,17 @@ public interface ICatalogExchange
 public interface ICatalogSourceFactory
 {
     ICatalogExchange OpenCatalogFile(string path);
+}
+
+/// <summary>Phase 2: what the copy planner reads, and what the copier records.</summary>
+public interface IConsolidationRepository
+{
+    /// <summary>Every present, non-empty file, classified unique / duplicate / pending.</summary>
+    IReadOnlyList<PlanFileDto> GetPlanFiles();
+
+    /// <summary>Adds (or refreshes) the destination file in the catalog, copying the source's metadata, and stores the hashes on the source too.</summary>
+    void RecordCopy(CopyRecordDto copy);
+
+    /// <summary>A destination file that was deleted (eviction of an old duplicate).</summary>
+    void MarkMissing(long fileId);
 }

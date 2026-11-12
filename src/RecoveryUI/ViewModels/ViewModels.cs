@@ -7,7 +7,7 @@ namespace RecoveryUI.ViewModels;
 
 // ViewModels: what a view shows, already formatted. Built by controllers from BLL models.
 
-public enum Page { Home, Disks, Scan, Report, Settings }
+public enum Page { Home, Disks, Scan, Report, Copy, Settings }
 
 public sealed class DriveRowViewModel
 {
@@ -143,4 +143,54 @@ public sealed class SettingsViewModel
     public required string DictionarySummary { get; init; }
     public required string LogFolder { get; init; }
     public required string Network { get; init; }
+}
+
+// ---------------------------------------------------------------- Copy page (Phase 2)
+
+/// <summary>A destination in the list; the order is the priority (main first, then overflow).</summary>
+public sealed record DestinationChoiceViewModel(string Path, string Text, long? MaxBytes)
+{
+    public override string ToString() => MaxBytes is { } m ? $"{Text}   (use at most {Format.Bytes(m)})" : Text;
+}
+
+public sealed class CopyOptionsViewModel
+{
+    public bool CopyDuplicates { get; init; } = true;
+    public bool Verify { get; init; }
+    public bool WaitForUnplugged { get; init; } = true;
+    public bool AllowPending { get; init; }
+    public long ReserveBytes { get; init; } = 1L << 30;
+}
+
+public sealed class DestinationRowViewModel
+{
+    [DisplayName("Destination")] public required string Name { get; init; }
+    [DisplayName("Folder")] public required string Folder { get; init; }
+    [DisplayName("Free"), Numeric] public required string Free { get; init; }
+    [DisplayName("Will be used"), Numeric] public required string Planned { get; init; }
+    [DisplayName("Files"), Numeric] public required string Files { get; init; }
+    [DisplayName("Usable"), Numeric, ExpertOnly] public required string Usable { get; init; }
+    [DisplayName("Kept free"), Numeric, ExpertOnly] public required string Reserve { get; init; }
+    [DisplayName("File system"), ExpertOnly] public required string FileSystem { get; init; }
+    [DisplayName("Old duplicates removed"), Numeric, ExpertOnly] public required string Evicted { get; init; }
+}
+
+public sealed class CopyPlanViewModel
+{
+    public required string ToCopy { get; init; }
+    public required string ToCopyCaption { get; init; }
+    public required string Unique { get; init; }
+    public required string Duplicates { get; init; }
+    public required string DuplicatesCaption { get; init; }
+    public required string Already { get; init; }
+    public required string AlreadyCaption { get; init; }
+    /// <summary>The one sentence: does it fit?</summary>
+    public required string Verdict { get; init; }
+    public bool Fits { get; init; }
+    public required IReadOnlyList<DestinationRowViewModel> Destinations { get; init; }
+    public required IReadOnlyList<string> Notes { get; init; }
+    /// <summary>"" when nothing would be deleted.</summary>
+    public required string Deletions { get; init; }
+    public bool HasDeletions { get; init; }
+    public bool CanStart { get; init; }
 }

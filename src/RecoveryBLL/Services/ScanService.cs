@@ -13,6 +13,10 @@ public sealed class ScanService(
     IFileRepository files,
     IFileSystemWalker walker,
     IVolumeProvider volumes,
+    IProtectedLocations protectedLocations,
+    ICatalogStore catalog,
+    AppSettings settings,
+    IKeepAwake keepAwake,
     DictionaryService dictionaries,
     IOperationLog log)
 {
@@ -21,7 +25,10 @@ public sealed class ScanService(
     public ScanResult Scan(ScanRequest request, IProgress<ProgressInfo>? progress, CancellationToken ct)
     {
         ScanRequestValidator.Validate(request);
-        var full = Path.GetFullPath(request.Path);
+        // Real drives/folders are checked against the Windows/AppData list; WSL mounts carry their own identity.
+        var full = request.IdentityOverride == null
+            ? PathSafetyValidator.Validate(request.Path, request.IsDestination ? PathUse.Destination : PathUse.ScanSource, protectedLocations)
+            : Path.GetFullPath(request.Path);
         if (!Directory.Exists(full)) throw new RecoveryServiceException("Folder not found: " + full);
 
         var identity = request.IdentityOverride
@@ -30,6 +37,9 @@ public sealed class ScanService(
         var root = identity.Root.EndsWith('\\') ? identity.Root : identity.Root + "\\";
         if (!(full + "\\").StartsWith(root, StringComparison.OrdinalIgnoreCase))
             throw new RecoveryServiceException($"{full} is not on {root}");
+
+        if (request.IdentityOverride == null && !request.IsDestination) CheckNothingIsWrittenTo(identity, root);
+        using var awake = keepAwake.Begin("Recovery Toolkit is cataloguing files");
 
         var diskId = disks.EnsureDisk(identity);
         if (request.IdentityOverride != null) disks.RegisterExtraRoot(diskId, root);
@@ -93,9 +103,45 @@ public sealed class ScanService(
 
         void Flush()
         {
+            if (batch.Count > 0 && !Directory.Exists(root))
+                log.Warn($"{root} disappeared during the scan (unplugged?). What was listed is kept; nothing is marked as deleted. Scan again when it is back.");
             if (batch.Count == 0) return;
             RepositoryGuard.Run(() => files.UpsertScanned(diskId, batch, stamp), "Cannot save scanned files");
             batch.Clear();
         }
+    }
+
+    /// <summary>
+    /// The toolkit writes its catalog, logs and run-state journal while it works. On a disk you recover from,
+    /// every write can overwrite deleted files that could still be undeleted, so that is refused.
+    /// The Windows drive is written to all the time anyway: there it is only a warning.
+    /// </summary>
+    void CheckNothingIsWrittenTo(VolumeIdentity source, string sourceRoot)
+    {
+        var written = new List<(string What, string Path)>();
+        if (catalog.LocalFile is { } db) written.Add(("catalog", db));
+        written.Add(("log folder", settings.LogDirectory));
+        var onWindowsDrive = new List<string>();
+        foreach (var (what, path) in written)
+        {
+            string? root;
+            try { root = Path.GetPathRoot(Path.GetFullPath(path)); }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException) { continue; }
+            if (string.IsNullOrEmpty(root) || root.StartsWith(@"\\", StringComparison.Ordinal)) continue;
+            var v = volumes.Identify(root);
+            if (v == null || v.Serial != source.Serial || v.TotalBytes != source.TotalBytes) continue;
+
+            if (string.Equals(root.TrimEnd('\\'), protectedLocations.SystemDrive.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
+            {
+                onWindowsDrive.Add(what);
+                continue;
+            }
+            throw new RecoveryServiceException(
+                $"The {what} ({path}) is on {sourceRoot}, the disk you want to scan. Writing there can overwrite deleted files that " +
+                "could still be recovered. Put the catalog and logs on another disk (DB_CONNECTION and LOG_DIR in .env, or --db) and start again.");
+        }
+        if (onWindowsDrive.Count > 0)
+            log.Warn($"The {string.Join(" and ", onWindowsDrive)} {(onWindowsDrive.Count == 1 ? "is" : "are")} on the Windows drive you are scanning. Fine for normal files, but do not use " +
+                     "this run to recover DELETED files from this drive: new writes can overwrite them.");
     }
 }

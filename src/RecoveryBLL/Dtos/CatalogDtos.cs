@@ -104,3 +104,14 @@ public sealed class DuplicateGroupDto
     public long Copies { get; init; }
     public List<DuplicateCopyDto> Locations { get; init; } = [];
 }
+
+// ---- Phase 2: consolidation
+
+public enum PlanFileKind { Unique, Duplicate, Pending }
+
+/// <summary>A present, non-empty catalogued file with its classification (same rules as the report).</summary>
+public sealed record PlanFileDto(long Id, long DiskId, string Path, long Size, long MtimeTicks, string? MediaType, byte[]? FullHash, PlanFileKind Kind);
+
+/// <summary>A file that was copied: the destination row is created from the source row plus these hashes.</summary>
+/// <remarks><see cref="DestMtimeTicks"/> is the time as the destination stores it (FAT/exFAT round it), so a later scan sees no change.</remarks>
+public sealed record CopyRecordDto(long SourceFileId, long DestDiskId, string DestPath, long DestMtimeTicks, byte[] QuickHash, byte[] FullHash, string Stamp);

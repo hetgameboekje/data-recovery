@@ -55,6 +55,7 @@ public sealed class SqliteDb : ICatalogStore
     readonly string connectionString;
     public string FilePath { get; }
     public string Description => "SQLite: " + FilePath;
+    public string? LocalFile => FilePath;
 
     public SqliteDb(string connectionString, bool readOnly = false)
     {

@@ -59,11 +59,39 @@ rtcatalog report --top 20           totals per disk + the 20 biggest duplicate g
 rtcatalog disks                     catalogued disks + plugged-in drives with connection type
 rtcatalog devices                   physical disks: number, model, bus, HDD/SSD, TRIM
 rtcatalog merge other-pc.db         merge a catalog made on another PC (works into SQL Server too)
+rtcatalog plan H:\ I:\               dry run: what goes where on main H: then overflow I:, and does it fit?
+rtcatalog plan H:\ I:\=500GB --csv plan.csv   cap I: at 500 GB, write every planned file to a CSV
+rtcatalog copy H:\ I:\               copy one clean set (stop any time; run again to continue)
+rtcatalog cleanup                   free what a crashed run left behind (Linux mounts, *.rtpart copies)
 rtcatalog wsl status                is WSL available for Linux disks?
 rtcatalog wsl scan 3 1 ext4         mount PhysicalDrive3 partition 1 read-only via WSL, catalog, unmount (admin)
 ```
 
 Options: `--env <file>`, `--db <sqlite file>` (overrides the `.env`), `--exclude <name or path>`, `--threads <n|auto>` (default auto: 1 for HDD, more for SSD/NVMe), `--sha256`, `--no-hash`, `--no-media`, `--top <n>`.
+
+`plan`/`copy` options: `--no-duplicates`, `--reserve <size>` (default 1GB), `--csv <file>`, `--allow-pending`, `--verify`.
+
+## Safety
+
+- **Protected folders:** the Windows drive (`C:\`) can only be used through a subfolder such as `C:\Recovery`. Windows, Program Files, ProgramData, every AppData, and folders that contain them (`C:\Users`, `C:\Users\<name>`) are refused, both for scanning and as a destination. Other drives may be used whole.
+- **Windows keeps working:** a destination on the Windows drive always keeps at least 20 GB free.
+- **After a crash or kill:** each start of rtcatalog or the app frees what the stopped run held: it unmounts WSL Linux disks (needs administrator) and lists half-written `*.rtpart` copies. `rtcatalog cleanup` shows the same on request. Two runs never write the same destination.
+- **Every deletion takes two steps:** (1) `plan`/`cleanup` list the files with an approval code, and you approve exactly that list with `--approve-delete <code>`; (2) you type `DELETE` when asked (in the app: a second dialog). Each file is re-checked just before it is removed. Without both steps nothing is deleted.
+- **Unplugged disks:** a copy waits up to 30 minutes for the disk to come back, on any port or drive letter (`--no-wait` skips it instead). Hashing stops that disk without marking its files missing. A scan keeps what it listed.
+- **Catalog on a source disk is refused:** the toolkit won't write to a disk you recover from. Put `catalog.db` and the logs elsewhere (`DB_CONNECTION`, `LOG_DIR`, `--db`).
+- **Long runs:** the PC stays awake while scanning, hashing or copying. Reads that hang on a bad sector are cut off after 60 s; after 3 on one disk, that disk is skipped (image it first).
+
+## Copying (Phase 2)
+
+Source disks are only read. On the destinations you get:
+
+| Folder | What |
+|---|---|
+| `Photos\`, `Videos\`, `Documents\`, … | one copy of all content, in its original folder structure |
+| `_OlderVersions\<disk>\…` | same folder and name as a newer file, but different content |
+| `_Duplicates\<disk>\…` | identical extra copies (lowest priority; skip with `--no-duplicates`) |
+
+Unique files get the space first. Old `_Duplicates` files are removed only to make room for a unique file, and only if that content is still kept elsewhere on the destination. Nothing on a destination is overwritten. Copies are written as `.rtpart`, checked against the catalog hash, then renamed, so stopping is always safe.
 
 ## How it avoids reading everything
 

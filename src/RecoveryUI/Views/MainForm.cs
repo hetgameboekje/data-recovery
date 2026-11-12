@@ -1,4 +1,4 @@
-using RecoveryUI.Infrastructure;
+﻿using RecoveryUI.Infrastructure;
 using RecoveryUI.ViewModels;
 
 namespace RecoveryUI.Views;
@@ -22,7 +22,7 @@ public partial class MainForm : Form, IMainView
         navButtons = new()
         {
             [Page.Home] = btnHome, [Page.Disks] = btnDisks, [Page.Scan] = btnScan,
-            [Page.Report] = btnReport, [Page.Settings] = btnSettings,
+            [Page.Report] = btnReport, [Page.Copy] = btnCopy, [Page.Settings] = btnSettings,
         };
         ApplyTheme();
         foreach (var (page, button) in navButtons)
@@ -34,7 +34,7 @@ public partial class MainForm : Form, IMainView
         };
         btnCancel.Click += (_, _) => CancelRequested?.Invoke(this, EventArgs.Empty);
         var tips = new ToolTip(components!);
-        foreach (var b in new[] { btnFutureCopy, btnFutureJunk, btnFutureCorrupt, btnFutureDeep, btnFutureNetwork })
+        foreach (var b in new[] { btnFutureJunk, btnFutureCorrupt, btnFutureDeep, btnFutureNetwork })
             tips.SetToolTip(b, (string)b.Tag!);
         tips.SetToolTip(chkExpert, "Show technical details: disk numbers, bus types, readers per disk, hashes, the live log and Linux (WSL) disks.");
     }
@@ -50,7 +50,7 @@ public partial class MainForm : Form, IMainView
         lblPageTitle.ForeColor = UiTheme.Text;
         panelHeader.BackColor = UiTheme.Surface;
         foreach (var b in navButtons.Values) StyleNav(b, false);
-        foreach (var b in new[] { btnFutureCopy, btnFutureJunk, btnFutureCorrupt, btnFutureDeep, btnFutureNetwork })
+        foreach (var b in new[] { btnFutureJunk, btnFutureCorrupt, btnFutureDeep, btnFutureNetwork })
         {
             StyleNav(b, false);
             b.ForeColor = UiTheme.Muted;

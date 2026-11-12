@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using RecoveryBLL;
 using RecoveryBLL.Interfaces;
 using RecoveryBLL.Models;
@@ -75,5 +75,36 @@ static class TablePrinter
         Console.WriteLine(Line(head));
         Console.WriteLine("  " + string.Join("  ", w.Select(n => new string('-', n))));
         foreach (var r in rows) Console.WriteLine(Line(r));
+    }
+}
+
+/// <summary>Step 2 of every deletion in the console: the list once more, then the person has to type DELETE.</summary>
+sealed class ConsoleDeletionConfirmer : IDeletionConfirmer
+{
+    public bool ConfirmFinal(DeletionBatch batch)
+    {
+        ConsoleProgress.ClearLine();
+        Console.WriteLine();
+        PrintList(batch);
+        if (Console.IsInputRedirected)
+        {
+            Console.WriteLine("  Not deleted: the final confirmation needs a person at the keyboard.");
+            return false;
+        }
+        Console.Write($"  Step 2 of 2: type DELETE to permanently delete these {batch.Count:N0} files ({Format.Bytes(batch.Bytes)}); anything else keeps them: ");
+        var answer = Console.ReadLine();
+        var ok = string.Equals(answer?.Trim(), "DELETE", StringComparison.Ordinal);
+        Console.WriteLine(ok ? "  Confirmed." : "  Not confirmed: nothing is deleted.");
+        return ok;
+    }
+
+    public static void PrintList(DeletionBatch batch, int max = 20)
+    {
+        Console.WriteLine($"  To delete: {batch.Count:N0} files, {Format.Bytes(batch.Bytes)}  (approval code {batch.Code})");
+        foreach (var f in batch.Files.Take(max))
+            Console.WriteLine($"    {Format.Bytes(f.Size),10}  {f.Path}");
+        if (batch.Count > max) Console.WriteLine($"    ... and {batch.Count - max:N0} more (plan --csv lists them all)");
+        var reasons = batch.Files.Select(f => f.Reason.Split(';')[0]).Distinct().ToList();
+        if (reasons.Count == 1) Console.WriteLine($"  Why: {batch.Files[0].Reason.Split(';')[0]}");
     }
 }

@@ -1,4 +1,4 @@
-using RecoveryUI.Infrastructure;
+﻿using RecoveryUI.Infrastructure;
 using RecoveryUI.ViewModels;
 
 namespace RecoveryUI.Views;
@@ -17,7 +17,7 @@ public partial class HomeView : UserControl, IHomeView
         lblNext.Font = UiTheme.HeadingFont;
         stepCatalog.ActionClicked += (_, _) => StepClicked?.Invoke(this, Page.Scan);
         stepReport.ActionClicked += (_, _) => StepClicked?.Invoke(this, Page.Report);
-        stepCopy.ActionEnabled = false;
+        stepCopy.ActionClicked += (_, _) => StepClicked?.Invoke(this, Page.Copy);
     }
 
     public void ShowSummary(HomeSummaryViewModel vm) => this.OnUi(() =>

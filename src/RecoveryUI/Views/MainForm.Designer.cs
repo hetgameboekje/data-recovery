@@ -1,4 +1,4 @@
-namespace RecoveryUI.Views;
+﻿namespace RecoveryUI.Views;
 
 partial class MainForm
 {
@@ -30,7 +30,7 @@ partial class MainForm
         btnReport = new Button();
         btnSettings = new Button();
         lblComing = new Label();
-        btnFutureCopy = new Button();
+        btnCopy = new Button();
         btnFutureJunk = new Button();
         btnFutureCorrupt = new Button();
         btnFutureDeep = new Button();
@@ -113,9 +113,9 @@ partial class MainForm
         panelNav.Controls.Add(btnDisks);
         panelNav.Controls.Add(btnScan);
         panelNav.Controls.Add(btnReport);
+        panelNav.Controls.Add(btnCopy);
         panelNav.Controls.Add(btnSettings);
         panelNav.Controls.Add(lblComing);
-        panelNav.Controls.Add(btnFutureCopy);
         panelNav.Controls.Add(btnFutureJunk);
         panelNav.Controls.Add(btnFutureCorrupt);
         panelNav.Controls.Add(btnFutureDeep);
@@ -171,13 +171,11 @@ partial class MainForm
         lblComing.Size = new Size(190, 20);
         lblComing.Text = "COMING NEXT";
         //
-        // btnFutureCopy
+        // btnCopy
         //
-        btnFutureCopy.Enabled = false;
-        btnFutureCopy.Name = "btnFutureCopy";
-        btnFutureCopy.Size = new Size(194, 34);
-        btnFutureCopy.Tag = "Phase 2: plan and copy one copy of everything to the backup disks (newest version wins).";
-        btnFutureCopy.Text = "   Copy plan";
+        btnCopy.Name = "btnCopy";
+        btnCopy.Size = new Size(194, 38);
+        btnCopy.Text = "   Copy";
         //
         // btnFutureJunk
         //
@@ -301,7 +299,7 @@ partial class MainForm
     private Button btnReport;
     private Button btnSettings;
     private Label lblComing;
-    private Button btnFutureCopy;
+    private Button btnCopy;
     private Button btnFutureJunk;
     private Button btnFutureCorrupt;
     private Button btnFutureDeep;
