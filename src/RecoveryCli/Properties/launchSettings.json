@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "help": { "commandName": "Project", "commandLineArgs": "--help" },
+    "disks": { "commandName": "Project", "commandLineArgs": "disks" },
+    "devices": { "commandName": "Project", "commandLineArgs": "devices" },
+    "report": { "commandName": "Project", "commandLineArgs": "report --top 10" },
+    "hash (auto readers)": { "commandName": "Project", "commandLineArgs": "hash" },
+    "wsl status": { "commandName": "Project", "commandLineArgs": "wsl status" }
+  }
+}

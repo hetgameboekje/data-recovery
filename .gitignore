@@ -3,9 +3,21 @@ obj/
 publish/
 *.user
 .vs/
+TestResults/
+
+# settings with secrets: only .env.example is committed
+.env
+.env.*
+!.env.example
+keys/
+*.pem
+*.key
+id_rsa*
+id_ed25519*
 
 # catalogs hold file lists of private disks; keep them out of git
 *.db
 *.db-wal
 *.db-shm
 *-log.txt
+logs/

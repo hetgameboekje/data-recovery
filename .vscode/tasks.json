@@ -1,0 +1,35 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["build", "${workspaceFolder}/data-recovery.slnx", "-nologo", "/property:GenerateFullPaths=true", "/consoleloggerparameters:NoSummary"],
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "publish rtcatalog.exe",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["publish", "${workspaceFolder}/src/RecoveryCli/RecoveryCli.csproj", "-c", "Release", "-o", "${workspaceFolder}/publish"],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "publish RecoveryToolkit.exe",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["publish", "${workspaceFolder}/src/RecoveryUI/RecoveryUI.csproj", "-c", "Release", "-o", "${workspaceFolder}/publish"],
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "test",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["test", "${workspaceFolder}/data-recovery.slnx"],
+      "group": "test",
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}

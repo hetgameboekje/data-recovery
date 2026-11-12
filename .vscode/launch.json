@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Recovery Toolkit (WinForms)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/RecoveryUI/bin/Debug/net10.0-windows/RecoveryToolkit.dll",
+      "cwd": "${workspaceFolder}",
+      "console": "internalConsole"
+    },
+    {
+      "name": "rtcatalog (ask for arguments)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/RecoveryCli/bin/Debug/net10.0-windows/rtcatalog.dll",
+      "args": "${input:rtArgs}",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "rtArgs",
+      "type": "promptString",
+      "description": "Arguments for rtcatalog",
+      "default": "report --db dev-catalog.db"
+    }
+  ]
+}

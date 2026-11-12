@@ -1,6 +1,6 @@
 # Recovery Toolkit – Plan & Project Notes
 
-_Last updated: 2026-11-12_
+_Last updated: 2026-11-12 (architecture restructure)_
 
 This file records the requests and questions so far, the current PowerShell toolkit, and the plan for the next version.
 
@@ -68,6 +68,28 @@ This file records the requests and questions so far, the current PowerShell tool
 - The `_Duplicates` eviction rule (Phase 2) is **confirmed**.
 - Recovery often brings back low-quality pictures that look like previews. These should be filtered out of the folders, with a choice of **move, delete or upscale**. Added as Phase 3b.
 
+### 2026-11-12: "Work with SOLID and a 3-layer architecture, like AccomodatieSOLID"
+**Requests:**
+- **Architecture:** SOLID and three layers (UI / BLL / DAL), with repositories for the database and MVC for the frontend, following the example in [hetgameboekje/AccomodatieSOLID](https://github.com/hetgameboekje/AccomodatieSOLID).
+- **WinForms**, with ext4 support through WSL.
+- **Dictionaries** in a separate XML file, read with the DOM.
+- **Secrets and the database connection** in a `.env` file. Use a public/private key pair where security is needed. No login, since this is a desktop app.
+- **Swappable database:** the repository pattern must allow a switch from SQLite to SQL Server/MSSQL. The database is local, but enterprise use may need it on several computers.
+- **Connections:** USB 3.0, SATA, NVMe, M.2 and other protocols where possible. Network sources aren't needed now; network data may be used later.
+- **Network export, last and optional:** two processes, a backlog folder and an override folder, over SFTP and FTP.
+- **Also:**
+  - recommend Claude plugins
+  - make a UI/UX that is simple but has depth
+  - find GitHub code with a suitable license
+
+**Done:** the restructure was built (Phase 1b). This plan was updated: sections 3, 7, 8 and 9 are new, and Phases 1b and 6–9 were added to section 5.
+
+### 2026-11-12: "Add a WinDirStat-like view to the tool"
+- Added as **Phase 2b: Disk map**, a treemap plus a folder tree of what takes the space, built from the catalog. See section 5.
+
+### 2026-11-12: "Visualise the bad sectors of a disk"
+- Added as **Phase 5b: Surface scan and bad-sector map**, with a block grid of read speed and errors, SMART data, and which files sit on damaged areas. See section 5.
+
 ---
 
 ## 2. Current setup: PowerShell RecoveryToolkit (`file management` version)
@@ -120,16 +142,94 @@ This file records the requests and questions so far, the current PowerShell tool
 
 ---
 
-## 3. Decision: which language for the next version
+## 3. Decisions: language and architecture
 
+### 3.1 Language
 | Option | Verdict |
 |---|---|
-| PowerShell | At its limit: one 210 KB file, slow loops over millions of files, and the GUI and threads rely on workarounds. A persistent hash database and a repair queue would make this worse. |
+| PowerShell | At its limit: one 210 KB file, slow loops over millions of files, and the GUI and threads rely on workarounds. |
 | C | No. Raw disk reads and hashing take a few lines in any language. C would cost months on the GUI and file handling for no benefit. |
 | Delphi | Can do the job, but it's niche, has few libraries and is hard to get help with. |
-| **C# / .NET 8 (chosen)** | The existing embedded C# (`RT.Scanner`, `RT.Visual`) moves over almost as-is. It has fast parallel hashing, SQLite (`Microsoft.Data.Sqlite`), crash-safe background jobs, the same Windows APIs, and builds to a single `.exe`. |
+| **C# / .NET 10 LTS (chosen)** | The existing embedded C# (`RT.Scanner`, `RT.Visual`) moves over almost as-is. It has fast parallel hashing, SQLite and SQL Server, the same Windows APIs, WinForms, and builds to a single `.exe`. |
 
-The real recovery work is done by external tools (PhotoRec, ffmpeg, untrunc) in any language. **Keep using the PowerShell toolkit** until each feature has been ported.
+External tools (PhotoRec, ffmpeg, untrunc, smartctl) do the heavy recovery work in any language. **Keep using the PowerShell toolkit** until each feature has been ported.
+
+### 3.2 Architecture: 3 layers + SOLID (built 2026-11-12)
+This follows the pattern of [AccomodatieSOLID](https://github.com/hetgameboekje/AccomodatieSOLID): the BLL owns the models, DTOs, **repository interfaces**, services and exceptions. The DAL references the BLL and **implements** those interfaces. The frontends wire the two together.
+
+```
+ RecoveryUI (WinForms, MVC)      RecoveryCli (rtcatalog.exe)        <- presentation: no logic, no SQL
+        |  Views <-> Controllers <-> ViewModels   |  args -> services -> console
+        v                                          v
+ RecoveryBLL  (net10.0, platform-neutral)                            <- business logic
+   Models, Dtos, Interfaces (IDiskRepository, IFileRepository, IReportRepository, ICatalogExchange,
+   IVolumeProvider, IPhysicalDeviceProvider, IFileSystemWalker, IFileContentReader, IDictionaryRepository,
+   IWslGateway, IOperationLog), Services (Scan, Fingerprint, Report, Merge, Disk, LinuxDisk, Dictionary,
+   Catalog), Validation, Exceptions, Fingerprinting (ContentHasher, ImageHeaderReader)
+        ^  implements
+ RecoveryDAL  (net10.0-windows)                                      <- data access
+   Sqlite/*      SqlServer/*      Xml/XmlDictionaryRepository (DOM)   Configuration/(.env)
+   Storage/ WindowsVolumeProvider, WindowsPhysicalDeviceProvider (IOCTL), FileSystemWalker, WslGateway
+ tests/RecoveryBLL.Tests (xUnit): 25 tests, including the full pipeline on SQLite and on SQL Server LocalDB
+```
+
+| SOLID | Where |
+|---|---|
+| **S**ingle responsibility | One service per job (scan / fingerprint / report / merge / disks / Linux), one repository per table area, one controller per page. |
+| **O**pen/closed | A new database means new repository classes plus one `case` in `RecoveryDAL.ServiceRegistration`. New file types, skip folders and bus types are XML edits, not code. |
+| **L**iskov | SQLite and SQL Server repositories pass the same tests and give the same report (verified: 135.77 GB unique and 93.86 GB extra on both). |
+| **I**nterface segregation | Repositories are split: disks, files, report, exchange and store. Services depend only on what they use. |
+| **D**ependency inversion | The BLL defines the interfaces and the DAL implements them. Composition (DI) happens only in `Program.cs` of each frontend. |
+
+- **MVC in WinForms:**
+  - Views (`HomeView`, `DisksView`, `ScanView`, `ReportView`, `SettingsView` and `MainForm`) implement interfaces (`IScanView` …), raise events and never call services.
+  - Controllers call the BLL on a worker thread through one shared `OperationRunner`, so two scans can never overlap.
+  - ViewModels format everything for display. `[ExpertOnly]` columns appear only in Expert mode.
+  - All views have `.Designer.cs` files, so the Visual Studio designer opens them.
+
+### 3.3 Database providers (repository pattern)
+| Provider | Status | Use |
+|---|---|---|
+| **SQLite** (default) | Done | One local file, nothing to install, and existing `catalog.db` files keep working. |
+| **SQL Server / LocalDB / Express** | Done and tested on LocalDB | `DB_PROVIDER=sqlserver`. The database and schema are created automatically. For several PCs, all scan into one server. |
+| PostgreSQL (option) | Later | `Npgsql` (PostgreSQL license). Same interfaces; only `RecoveryDAL/Postgres/*` would be new. |
+
+- A cross-provider merge works: a SQLite catalog from another PC merges into SQL Server (28,772 records in about 4 s).
+- SQL Server specifics:
+  - `MERGE` with `SqlBulkCopy` staging tables, for speed
+  - a persisted SHA-256 `path_key`, because long paths can't be a unique index
+  - `VARBINARY(16)` hashes
+
+### 3.4 Configuration, secrets and keys
+- **`.env`** (never committed; `.env.example` is):
+  - `DB_PROVIDER`, `DB_CONNECTION`, `DB_PASSWORD`, `DICTIONARIES_FILE`, `LOG_DIR`, and `NET_*` for the network export
+  - `${VAR}` expansion, so a password lives in one variable
+  - real environment variables override the file
+  - the UI and logs only show a password-free description
+- **`config/dictionaries.xml`**, loaded with the **XML DOM** (`XmlDocument` + XPath). DTDs and external entities are disabled, so the file can't pull in outside content (there's a test for this). It holds:
+  - file categories, skip folders, partial-file extensions
+  - bus types with recovery notes and reader counts
+  - junk/preview rules for Phase 3/3b
+  - "Reload" in Settings reads it again
+- **Keys:** there's no login (desktop app). Public/private keys are used where something leaves the PC:
+  - **SFTP:** ed25519 key authentication (`NET_PRIVATE_KEY`, optional passphrase) plus host-key **pinning** (`NET_HOST_KEY_FINGERPRINT`), so an upload refuses a changed server.
+  - **SQL Server on another machine:** Windows authentication, or a SQL login whose password stays in `.env`, with `Encrypt=True` (TLS).
+  - Optional later: encrypt `.env` secrets at rest with Windows DPAPI (per user, no key file to manage).
+
+### 3.5 UI/UX: simple first, depth on request
+- **Simple mode (default):**
+  - **Home** shows where you are (disks, files, unique data, extra copies, not yet decided) and **one "Next step" sentence**, plus 3 numbered step cards.
+  - **Catalog disks** has two steps (tick drives or folders, press Start), a progress bar with time left, and "Read-only: nothing is changed" in plain words.
+  - **Report** shows 4 tiles, one sentence ("One copy of everything needs 135.77 GB"), and tables per type and per disk.
+- **Expert mode (toggle, remembered):**
+  - disk number, model, bus, HDD/SSD, volume serial, readers per disk, TRIM warnings
+  - physical disks, and Linux (WSL) mounting
+  - readers per disk, SHA-256 and exclude options
+  - largest duplicate groups with every path
+  - the live log
+- **Disk map** (Phase 2b): a WinDirStat-style overview of where the space goes. Simple mode shows the map and a legend; Expert mode adds the folder tree, the extension list and the duplicate overlay.
+- **Disk health** (Phase 5b): a grid of coloured blocks showing how fast each part of the disk reads and where it fails, with a plain verdict on top ("Healthy" / "Weak spots" / "Failing: copy your data first").
+- **Coming next** (planned phases) is visible but greyed out in the sidebar, with a tooltip per phase.
 
 ---
 
@@ -147,7 +247,7 @@ Nothing is copied until **every** disk has been read and fingerprinted. You then
 - Delete the old `Desktop\data` copy so it can't be started by mistake. _(Waiting for confirmation.)_
 
 ### Phase 1: Catalog (fingerprint database), read-only
-> **Built 2026-11-12:** `src/RecoveryCatalog` → `rtcatalog.exe` (.NET 10, the current LTS; usage in README.md).
+> **Built 2026-11-12** as `rtcatalog.exe` (now `src/RecoveryCli` on top of the BLL/DAL; see Phase 1b) (.NET 10, the current LTS; usage in README.md).
 > Tested on generated test data and on E: (28,772 files, 230 GB): listing took 1.7 s and a full fingerprint took 1 min 40 s with 4 threads.
 > E: turned out to hold 93.9 GB of extra copies (135.8 GB unique).
 > Also stores image width/height and EXIF camera/date now, for Phase 3/3b. Video duration (ffprobe) isn't done yet.
@@ -163,6 +263,11 @@ Nothing is copied until **every** disk has been read and fingerprinted. You then
 - Scan every disk: the controller disk, the HDDs, and the NVMe/SATA disks in the other PC. For the other PC, run the app there and **merge the database file** afterwards; there's no need to remove the disks.
 - **Output:** a report per disk (total, unique, duplicates).
 
+### Phase 1b: restructure to 3 layers + SOLID (done 2026-11-12)
+- `RecoveryBLL`, `RecoveryDAL`, `RecoveryCli` (`rtcatalog.exe`), `RecoveryUI` (`RecoveryToolkit.exe`, WinForms MVC) and `tests/RecoveryBLL.Tests`. See section 3.
+- The same behaviour as the Phase 1 tool. The CLI adds `devices` (physical disks and bus) and `wsl status|scan`.
+- `--threads auto` is now the default: 1 reader for an HDD, more for an SSD/NVMe, based on the bus.
+
 ### Phase 2: Consolidate (copy plan)
 Each file gets one of four labels:
 1. **Unique** → main folders (Photos/Videos/…) on the backup disk, then the overflow disk.
@@ -175,6 +280,32 @@ Each file gets one of four labels:
 **Dry-run report first**, e.g. "1.31 TB unique, 820 GB duplicates, 4,200 older versions → fits on 2 TB."
 
 Resume safety stays the same: `.rtpart` files, a journal, and pausing when everything is full.
+
+### Phase 2b: Disk map (WinDirStat-style overview)
+A visual answer to "what takes the space?", in the same spirit as [WinDirStat](https://github.com/windirstat/windirstat). It's our own implementation: WinDirStat is GPL-3.0, so its code can't be copied into this MIT project; only the idea is reused.
+
+- **Layout:** a new "Disk map" page with three linked parts:
+  1. **Folder tree** (top left): folders sorted by size, with size, % of the parent, file count and last change. Expanding a folder shows its subfolders and files.
+  2. **Extension list** (top right): extension, colour, total size, % and file count, sorted by size. Clicking an extension highlights all its files in the map.
+  3. **Treemap** (bottom): every file is a rectangle sized by its bytes, grouped by folder and coloured by file type (Photos / Videos / Audio / Documents / Archives / Other, the categories from `dictionaries.xml`). It has shaded "cushion" tiles, so folder borders stay visible.
+- **Linked selection:** clicking a rectangle selects the file in the tree, and selecting a folder outlines its area in the map. Hovering shows the path, size and date. A right-click menu offers "Open in Explorer" and "Copy path" (read-only; no delete from this view).
+- **Scope selector:** one disk, one folder, or **all catalogued disks together**, with one top-level block per disk.
+- **Recovery-specific overlays** (the reason to build this rather than run WinDirStat):
+  - **Duplicates:** extra copies drawn hatched/dimmed, so "this folder is 40 GB, of which 25 GB are copies" is visible at a glance.
+  - **Not yet decided:** files still waiting for fingerprinting get a dotted outline.
+  - **Junk and previews** (after Phase 3/3b): thumbnails, icons, skins and game assets marked, to show how much space they take.
+  - **Unplugged disks** still show, because the map is built from the catalog, not from the disk.
+- **Data source:** only the catalog database. No disk is read again, so the map opens instantly even for unplugged disks. A new repository method returns the folder sizes per disk (`IReportRepository.GetFolderTree(diskId, prefix)`), aggregated in SQL; both SQLite and SQL Server get it.
+- **Drawing:**
+  - our own squarified treemap algorithm (Bruls, Huizing & van Wijk, 2000; a published algorithm, free to implement)
+  - drawn in a custom WinForms control with GDI+, double-buffered
+  - the layout is computed off the UI thread and cached per scope
+  - large catalogs: rectangles smaller than 1–2 px are merged into their folder's block, so millions of files stay smooth
+- **Colours:** one colour per category from `dictionaries.xml` (a `color` attribute added to `<category>`), editable like the other dictionaries. Text and outlines meet contrast rules, and the legend always shows the names, so colour is never the only cue.
+- **Simple vs Expert:**
+  - **Simple:** map plus legend, and a one-line summary ("Largest: Videos 116 GB, of which 72 GB are copies").
+  - **Expert:** the full folder tree, the extension list, overlays per type, and exporting the map as PNG.
+- **Order:** after Phase 2, because the copy plan comes first. It can start any time after Phase 1b, since it only needs the catalog.
 
 ### Phase 3: Junk detection (moved to `_Review\Junk`, never deleted)
 - **Minecraft skins:** PNGs of exactly 64×64 or 64×32.
@@ -238,6 +369,96 @@ All of this runs on the catalog (Phase 1) data, so detection needs no extra read
 ### Phase 5: port the remaining PowerShell features
 Deep recovery (PhotoRec), quick scan/undelete, disk tools, imaging and look-alike duplicates are ported to the C# app. After that, the PowerShell toolkit is retired.
 
+### Phase 5b: Surface scan and bad-sector map
+See at a glance where a disk is slow or damaged, and **which files are affected**, in the spirit of tools like Victoria or HD Tune. It's our own implementation.
+
+- **The view** (new "Disk health" page, or a tab on Disks):
+  - **Block grid:** the whole disk as a grid of small squares. Each square is one block of LBAs (e.g. 1,024 blocks across the surface, adjustable).
+  - **Colour by read time:** fast (green), slower (yellow), very slow (orange, often a sector the drive is struggling with), unreadable (red), not tested yet (grey).
+  - **Speed graph:** read speed (MB/s) over the disk position. A healthy HDD shows a smooth line that drops from the outer to the inner tracks; dips and spikes stand out.
+  - **Summary** in plain words: blocks tested, slow and unreadable counts, a time estimate, and a verdict: "Healthy" / "Weak spots" / "Failing: copy your data first".
+  - **Hover / click a block:** its LBA range, read time, error, and the **files stored there** (see below).
+- **SMART panel** next to the grid. These attributes predict failure, so they're shown with explanations:
+  - 5 Reallocated sectors, 197 Pending sectors, 198 Offline uncorrectable, 199 CRC errors (often a cable or USB bridge, not the disk), 9 Power-on hours, 194 Temperature.
+  - Source: `smartctl` (smartmontools, external, GPL), with `-d sat` for USB-SATA bridges such as the ASMT 2115. NVMe uses its own health log (media errors, percentage used).
+- **How the scan works (read-only, gentle on a failing disk):**
+  - It reads `\\.\PhysicalDriveN` directly, which needs **administrator** rights. Large sequential reads per block, timed with a high-resolution clock.
+  - On an error or timeout it **skips ahead** and doesn't retry in a loop, like ddrescue's first pass. A dying disk gets the fewest possible extra reads.
+  - **Safety stop:** after N unreadable blocks or a sudden SMART change (pending sectors rising), it pauses and advises **imaging first** (Phase 5 imaging), then working from the image.
+  - It never writes. There's no "remap"/"erase" mode; that belongs in vendor tools, not a recovery tool.
+  - Stop and resume like the catalog: progress is saved per block.
+- **One map for scan and imaging:** the Phase 5 sector imaging (bad-sector skip) writes the **same block map**. Imaging a failing disk therefore produces the bad-sector picture for free, and both show in the same view.
+- **Files on bad sectors** (the recovery-specific part):
+  - **NTFS:** the file allocation is read from the MFT through **DiscUtils** (MIT) or `FSCTL_GET_RETRIEVAL_POINTERS`. Every catalogued file overlapping an unreadable or very slow block is flagged.
+  - Results go into the catalog (e.g. `files.on_bad_sector`) and feed:
+    - **Phase 4 (Corrupt files):** these files are checked first.
+    - **Phase 2 (copy plan):** if another copy exists on a healthy disk, that one is used.
+    - **Phase 2b (Disk map):** an overlay that outlines affected files in red.
+  - FAT/exFAT come through DiscUtils too. ext4 is later (Phase 6).
+- **Storage** (both providers): a `surface_scans` table (disk, date, block size, verdict, SMART snapshot) and `surface_blocks` (scan, block index, read ms, status), compressed into runs of equal blocks so a 5 TB disk stays small.
+- **Per connection type** (from Phase 7):
+  - **HDD:** the most useful case, because read time shows weak areas well.
+  - **SSD/NVMe:** read time says little (wear-levelling hides the physical layout). The view shows errors plus the NVMe/SMART wear values instead, with a note.
+  - **USB bridges:** some hide or delay errors. A "bridge may hide errors" note appears when the bus is USB and SMART isn't passed through.
+- **Simple vs Expert:**
+  - **Simple:** verdict, grid and a "What should I do?" line.
+  - **Expert:** block size, timeout, thresholds per colour, raw SMART table, LBA details, and export (PNG of the grid, CSV of the blocks).
+- **Order:** with the Phase 5 port of disk tools and imaging, since they share the raw-disk reader and the block map.
+
+### Phase 6: Linux file systems (ext4, btrfs, xfs)
+- **Done (basic):** Expert mode → Disks → "Linux disks via WSL", or `rtcatalog wsl scan <disk#> <partition#> ext4`.
+  - It runs `wsl --mount \\.\PHYSICALDRIVEn --partition p --type ext4 --options ro` (read-only), scans `\\wsl.localhost\<distro>\mnt\wsl\PHYSICALDRIVEnpP`, and unmounts.
+  - The catalog identity is the filesystem **UUID** and size (from `findmnt`), because every WSL path reports the same Windows volume.
+  - It needs **administrator** rights and a real distro (`docker-desktop` is skipped).
+  - **Not yet tested on a real ext4 disk:** this PC has none, and the session wasn't elevated.
+- **Next:** read ext2/3/4 **directly** with **DiscUtils** (MIT), without WSL. Raw reads need admin too, but there's no VM and it works on any Windows.
+- **Deleted files on ext4:** ext4 zeroes block pointers on delete, so name-based undelete rarely works. **PhotoRec** carving (any file system) is the reliable route and is already in the PowerShell toolkit (Phase 5).
+
+### Phase 7: storage connections (USB 3.x, SATA, NVMe, M.2, SD, …)
+- **Done:** every drive shows how Windows sees it: USB, SATA, NVMe, SCSI/UASP, SD, MMC, SAS, RAID, iSCSI, virtual/VHD, Storage Spaces, FireWire, ATA/IDE and more.
+  - It uses IOCTLs that need **no admin**, and also reports HDD/SSD, TRIM and removable.
+  - Verified here: Samsung 850 EVO = SATA SSD, Kingston/Samsung = NVMe SSD, ASMT 2115 = USB (type hidden by the bridge → 1 reader), SanDisk Extreme = USB SSD.
+- **What the bus means for recovery** (in `dictionaries.xml`, shown in Expert mode):
+  - Recovery reads every disk the same way (`\\.\PhysicalDriveN`), so USB 3.0, SATA, NVMe and M.2 all work. **M.2 is a slot**, so an M.2 drive reports SATA or NVMe.
+  - **SSD/NVMe with TRIM:** deleted files are usually wiped by the drive itself, so carving finds zeros. The UI warns about this. HDDs and SD cards are the good cases.
+  - **USB bridges** often hide SMART and the HDD/SSD type. Health checks then need `smartctl -d sat` (Phase 5, external tool).
+  - **iSCSI and Fibre Channel are block-level**, so unlike SMB/FTP they *can* be recovered from like a local disk.
+- **Next (Phase 5 port):**
+  - SMART health per bus (smartctl, external, GPL)
+  - sector imaging with bad-sector skip for failing disks, so recovery works from the image
+  - MTP phones/cameras (exists in PowerShell)
+
+### Phase 8: enterprise database (several computers)
+- **Done:** a SQL Server provider. Point every PC's `.env` at one server, and all catalogs land in one database. No merge is needed.
+- **Alternative without a server:** each PC keeps its own SQLite catalog, and `merge` combines them (works across providers).
+- **Next if needed:**
+  - a PostgreSQL provider
+  - `machine_name` per scan (who scanned what)
+  - a read-only "report viewer" role; SQL Server permissions are enough, the app still needs no login
+
+### Phase 9 (last, optional): network export over SFTP / FTP
+**Not needed for the current setup.** This phase is designed now so the earlier phases leave the right hooks. Recovery itself never runs over a network (file protocols don't expose deleted data). The network is only a **destination**, and later perhaps a **source of normal files** to catalog.
+
+**Two processes, one-way hand-off through folders:**
+```
+ Recovery/Consolidate process            Uploader process (separate exe or service)
+ ----------------------------            ------------------------------------------
+ writes  <BACKLOG>\x.rtpart              watches <BACKLOG> for finished files only
+ renames <BACKLOG>\x   (atomic, done) -> upload to <REMOTE>/x.part over SFTP/FTP(S)
+                                         verify remote size (+ hash where the server allows)
+                                         rename remote x.part -> x       (atomic on the server)
+                                         move local file  -> <OVERRIDE>\uploaded\x
+ duplicates      -> <OVERRIDE>\duplicates\     (from Phase 2)
+ unrecoverable   -> <OVERRIDE>\unrecoverable\  (from Phase 4)
+```
+- **The backlog is filled by one process only** (the recovery side). The uploader only *reads* from it and moves files out. No file is ever shared mid-write, because `.rtpart` files are ignored until they're renamed.
+- **Override folder:** it collects everything that's safe elsewhere or not worth keeping locally: uploaded files, duplicates and unrecoverable files. When local space runs out, this folder is overwritten/cleared first (the same rule as `_Duplicates` in Phase 2). _Please confirm this reading of "override folder"; see open points._
+- **Crash-safe:** a journal (in the catalog DB) records each file as `queued → uploading → uploaded → verified`. After a crash, `uploading` files are re-sent (the remote `.part` is overwritten) and nothing is lost or duplicated.
+- **Protocols:**
+  - **SFTP** (recommended): [SSH.NET](https://github.com/sshnet/SSH.NET), MIT. Key authentication plus host-key pinning from `.env`.
+  - **FTP / FTPS:** [FluentFTP](https://github.com/robinrodricks/FluentFTP), MIT. Explicit TLS required unless `.env` says otherwise. Plain FTP sends passwords in clear text, so it's for a trusted LAN only.
+- **The "middleman":** this design needs no middleman server. The uploader process *is* the middleman between the local backlog and the network share. If a relay server is wanted later (e.g. a NAS that pulls from the PC), it can use the same folder contract.
+
 ---
 
 ## 6. Hardware setup for the new workflow
@@ -254,9 +475,60 @@ Deep recovery (PhotoRec), quick scan/undelete, disk tools, imaging and look-alik
 
 ---
 
-## 7. Open points
+## 7. Third-party code and tools (licenses checked 2026-11-12)
+This repository is **MIT**. MIT, Apache-2.0 and BSD code can be included; keep each project's license notice in `THIRD-PARTY-NOTICES.md`. GPL code may **not** be copied in. GPL tools are run as **separate programs** (as PhotoRec already is), which is allowed.
+
+| Project | License | Use here | How |
+|---|---|---|---|
+| [LTRData/DiscUtils](https://github.com/LTRData/DiscUtils) | MIT | Read ext2/3/4, NTFS, FAT, exFAT, ISO, VHD/VMDK from raw disks or images without mounting (Phase 6, imaging) | NuGet library |
+| [sshnet/SSH.NET](https://github.com/sshnet/SSH.NET) | MIT | SFTP upload with key authentication (Phase 9) | NuGet library |
+| [robinrodricks/FluentFTP](https://github.com/robinrodricks/FluentFTP) | MIT | FTP/FTPS upload (Phase 9) | NuGet library |
+| [drewnoakes/metadata-extractor-dotnet](https://github.com/drewnoakes/metadata-extractor-dotnet) | Apache-2.0 | Full EXIF/XMP/QuickTime metadata, incl. video duration and HEIC; can replace the small header reader (Phase 3b) | NuGet library |
+| [coenm/ImageHash](https://github.com/coenm/ImageHash) | MIT | Perceptual hashes for look-alike photos (port of `RT.Visual`; Phase 3b "has a full version") | NuGet library |
+| [mono/SkiaSharp](https://github.com/mono/SkiaSharp) | MIT | Decode and verify images for the corrupt-file check; thumbnails in the UI (Phase 4) | NuGet library |
+| [adamhathcock/sharpcompress](https://github.com/adamhathcock/sharpcompress) | MIT | Test/open archives (zip, 7z, rar) for corruption (Phase 4) | NuGet library |
+| [DapperLib/Dapper](https://github.com/DapperLib/Dapper) | Apache-2.0 | Optional: less mapping code in repositories | NuGet library |
+| [dotnet/SqlClient](https://github.com/dotnet/SqlClient) | MIT | SQL Server provider | **in use** |
+| [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) | MPL-2.0 | SMART/temperature as a library. MPL is file-level copyleft: use it unmodified as a package, don't copy its files into ours | NuGet library |
+| [xinntao/Real-ESRGAN-ncnn-vulkan](https://github.com/xinntao/Real-ESRGAN-ncnn-vulkan) | MIT | Upscaling orphan previews (Phase 3b) | external exe |
+| [cgsecurity/testdisk](https://github.com/cgsecurity/testdisk) (PhotoRec) | GPL-2.0 | Carving deleted files (already used) | external exe only |
+| [anthwlock/untrunc](https://github.com/anthwlock/untrunc) | GPL-2.0 | Repair MP4/MOV without an index (Phase 4) | external exe only |
+| [smartmontools](https://github.com/smartmontools/smartmontools) | GPL-2.0 | SMART through USB bridges (`-d sat`) (Phase 5/7) | external exe only |
+| [FFmpeg](https://github.com/FFmpeg/FFmpeg) | LGPL/GPL (build-dependent) | Probe/test-decode/remux videos (Phase 4) | external exe only |
+| [sleuthkit/sleuthkit](https://github.com/sleuthkit/sleuthkit) | mixed (CPL/IBM/GPL parts) | Reference for file-system forensics; `fls`/`icat` as external tools if ever needed | external exe only |
+| [qarmin/czkawka](https://github.com/qarmin/czkawka) | MIT outside its app crates (check per crate) | Ideas for similar-image/video detection and broken-file checks (Rust; ideas only, not code) | reference |
+
+Reference only (idea, no code): [windirstat/windirstat](https://github.com/windirstat/windirstat) is GPL-3.0, so the Phase 2b disk map is our own implementation of the published squarified-treemap algorithm.
+
+Reference only (idea, no code) for Phase 5b: [GNU ddrescue](https://www.gnu.org/software/ddrescue/) (GPL) for the "skip ahead, never hammer a bad area" read strategy and its mapfile idea. It can also be run as an external tool for very damaged disks.
+
+Not used: [SixLabors/ImageSharp](https://github.com/SixLabors/ImageSharp). Its "Six Labors Split License" isn't plain open source for every use; SkiaSharp covers the need under MIT.
+
+---
+
+## 8. Claude Code plugins for this project
+From the official `claude-plugins-official` marketplace (install with `/plugin`):
+
+| Plugin | Why | Priority |
+|---|---|---|
+| **csharp-lsp** | Real C# code intelligence for Claude (errors, go-to-definition, references) across the 5 projects. Needs `dotnet tool install -g csharp-ls`. | **Install** |
+| **security-guidance** | Warns when an edit touches secrets, `.env`, credentials, SQL strings or file deletion; this project has all of them. | **Install** |
+| **feature-dev** | Explore → architect → implement → review workflow, a good fit for Phases 2–9. | **Install** |
+| commit-commands | `/commit`, push and PR in one step. | Nice to have |
+| pr-review-toolkit | Review agents for error handling, tests and type design before merging a phase. | Nice to have |
+| claude-md-management | Keeps a project `CLAUDE.md` (architecture rules, "never write to source disks") up to date. | Nice to have |
+
+Already available in this setup: `code-review`, `code-simplifier`, `engineering`, `diagrams`, and the Microsoft Learn docs connector (.NET/WinForms/SQL Server documentation). Not useful here: web-frontend plugins (`frontend-design`, `playwright`), since this is WinForms.
+
+---
+
+## 9. Open points
 - ~~Confirm the `_Duplicates` eviction rule~~: confirmed.
-- Choose the preview size threshold (default: longest side ≤ 640 px) and whether orphan previews are upscaled automatically or only on request.
+- ~~Build Phase 1~~: done. ~~Restructure into 3 layers~~: done (Phase 1b).
+- Choose the preview size threshold (default: longest side ≤ 640 px; now editable in `dictionaries.xml`), and whether orphan previews are upscaled automatically or only on request.
 - Confirm which disk is the "controller" (reference) disk for the catalog.
-- ~~Build Phase 1 (catalog + database) in C#~~: done (`rtcatalog`).
-- Next step: catalog every disk (`rtcatalog scan`), including those in the other PC (then `rtcatalog merge`), and run G: after its sort finishes. Then build Phase 2 (copy plan + dry-run report).
+- **Override folder (Phase 9):** confirm that it means "files that are safe elsewhere or not worth keeping, which may be cleared first when space runs out" (uploaded, duplicates, unrecoverable).
+- Disk map (Phase 2b): keep the order (after Phase 2) or build it earlier as a quick visual check of the catalog?
+- Bad-sector map (Phase 5b): block size default (≈1,024 blocks per disk, or a fixed size such as 256 MB?), and the colour thresholds for "slow" and "very slow" (proposal: > 50 ms and > 300 ms per 1 MB read on an HDD).
+- Test the WSL ext4 mount on a real Linux disk, as administrator.
+- Next step: catalog every disk (UI "Catalog disks" or `rtcatalog scan`), including the other PC (merge, or point it at one SQL Server). Then build Phase 2 (copy plan + dry-run report).

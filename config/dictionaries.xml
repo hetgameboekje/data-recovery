@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Recovery Toolkit dictionaries.
+  Loaded at start-up with the XML DOM (System.Xml.XmlDocument + XPath) by RecoveryDAL.Xml.XmlDictionaryRepository.
+  Edit freely, then press "Reload dictionaries" in Settings (or restart). DTDs/external entities are not allowed.
+  Every list is a <dictionary name="..."> so new lists can be added without changing the file layout.
+-->
+<dictionaries version="1">
+
+  <!-- File type per extension. Same lists as the PowerShell RecoveryToolkit, so both sort files identically. -->
+  <dictionary name="categories" default="Other">
+    <category name="Photos">
+      <extension>jpg</extension><extension>jpeg</extension><extension>jpe</extension><extension>jfif</extension>
+      <extension>png</extension><extension>gif</extension><extension>bmp</extension><extension>tif</extension>
+      <extension>tiff</extension><extension>heic</extension><extension>heif</extension><extension>webp</extension>
+      <extension>avif</extension><extension>svg</extension><extension>ico</extension><extension>psd</extension>
+      <extension>raw</extension><extension>cr2</extension><extension>cr3</extension><extension>crw</extension>
+      <extension>nef</extension><extension>nrw</extension><extension>arw</extension><extension>srf</extension>
+      <extension>sr2</extension><extension>orf</extension><extension>raf</extension><extension>rw2</extension>
+      <extension>dng</extension><extension>pef</extension><extension>srw</extension><extension>x3f</extension>
+    </category>
+    <category name="Videos">
+      <extension>mp4</extension><extension>m4v</extension><extension>mov</extension><extension>3gp</extension>
+      <extension>3g2</extension><extension>avi</extension><extension>mkv</extension><extension>mpg</extension>
+      <extension>mpeg</extension><extension>mts</extension><extension>m2ts</extension><extension>ts</extension>
+      <extension>wmv</extension><extension>asf</extension><extension>flv</extension><extension>webm</extension>
+      <extension>vob</extension><extension>ogv</extension><extension>divx</extension>
+    </category>
+    <category name="Audio">
+      <extension>mp3</extension><extension>wav</extension><extension>flac</extension><extension>ogg</extension>
+      <extension>oga</extension><extension>opus</extension><extension>m4a</extension><extension>aac</extension>
+      <extension>wma</extension><extension>aiff</extension><extension>aif</extension><extension>amr</extension>
+      <extension>mid</extension><extension>midi</extension><extension>ape</extension>
+    </category>
+    <category name="Documents">
+      <extension>pdf</extension><extension>doc</extension><extension>docx</extension><extension>docm</extension>
+      <extension>xls</extension><extension>xlsx</extension><extension>xlsm</extension><extension>ppt</extension>
+      <extension>pptx</extension><extension>odt</extension><extension>ods</extension><extension>odp</extension>
+      <extension>rtf</extension><extension>txt</extension><extension>csv</extension><extension>md</extension>
+      <extension>epub</extension><extension>pages</extension><extension>numbers</extension><extension>key</extension>
+    </category>
+    <category name="Archives">
+      <extension>zip</extension><extension>rar</extension><extension>7z</extension><extension>tar</extension>
+      <extension>gz</extension><extension>tgz</extension><extension>bz2</extension><extension>xz</extension>
+      <extension>iso</extension>
+    </category>
+  </dictionary>
+
+  <!-- Folders never entered while scanning (matched by name, anywhere). -->
+  <dictionary name="skipFolders">
+    <item>$RECYCLE.BIN</item>
+    <item>RECYCLER</item>
+    <item>System Volume Information</item>
+    <item>Config.Msi</item>
+    <item>$WinREAgent</item>
+    <item>$SysReset</item>
+    <item>$Windows.~BT</item>
+    <item>$Windows.~WS</item>
+    <item>_RecoveryToolkit</item>   <!-- the toolkit's own logs, PhotoRec sessions and half-sorted output -->
+    <item>lost+found</item>         <!-- ext2/3/4: fsck leftovers, scanned separately if wanted -->
+  </dictionary>
+
+  <!-- Files skipped only in the root of a volume. -->
+  <dictionary name="skipRootFiles">
+    <item>pagefile.sys</item>
+    <item>hiberfil.sys</item>
+    <item>swapfile.sys</item>
+    <item>DumpStack.log</item>
+    <item>DumpStack.log.tmp</item>
+  </dictionary>
+
+  <!-- Half-written copies; never catalogued. -->
+  <dictionary name="partialFileExtensions">
+    <item>rtpart</item>
+    <item>part</item>
+    <item>crdownload</item>
+  </dictionary>
+
+  <!-- Image formats whose width/height (and EXIF for JPEG) are read from the header during cataloguing. -->
+  <dictionary name="probeableImages">
+    <item>jpg</item><item>jpeg</item><item>jpe</item><item>jfif</item>
+    <item>png</item><item>gif</item><item>bmp</item><item>webp</item>
+  </dictionary>
+
+  <!--
+    How a disk is connected (Windows STORAGE_BUS_TYPE code). Recovery itself is bus-independent: every disk is read
+    as \\.\PhysicalDriveN. The bus decides speed, whether SMART is visible, and how many parallel readers help.
+    readThreads applies to flash (SSD) only; spinning disks always get 1 reader.
+    trimWarning: on SSDs with TRIM, deleted files are usually erased by the drive itself and cannot be carved back.
+    M.2 is a slot, not a bus: an M.2 drive reports SATA or NVMe.
+  -->
+  <dictionary name="busTypes">
+    <bus code="0"  name="Unknown"        readThreads="1" trimWarning="false">Connection type not reported.</bus>
+    <bus code="1"  name="SCSI / UASP"    readThreads="4" trimWarning="false">SCSI, or a USB 3.x drive using UASP (often reported as SCSI). Fast and stable; good for recovery sources.</bus>
+    <bus code="2"  name="ATAPI"          readThreads="1" trimWarning="false">Optical drive (CD/DVD/Blu-ray). Read-only media; image it first if discs are scratched.</bus>
+    <bus code="3"  name="ATA / IDE"      readThreads="1" trimWarning="false">Parallel ATA (IDE), usually an old disk on an IDE-to-USB/SATA adapter. Expect slow reads; image first.</bus>
+    <bus code="4"  name="FireWire"       readThreads="1" trimWarning="false">IEEE 1394 (FireWire). Old external disks and camcorders.</bus>
+    <bus code="5"  name="SSA"            readThreads="1" trimWarning="false">Serial Storage Architecture (legacy server storage).</bus>
+    <bus code="6"  name="Fibre Channel"  readThreads="4" trimWarning="false">Fibre Channel SAN disk. Block-level, so recovery tools can read it like a local disk.</bus>
+    <bus code="7"  name="USB"            readThreads="2" trimWarning="false">USB (2.0/3.x) through a USB-to-SATA bridge (e.g. ASMedia, JMicron). SMART is often hidden by the bridge. Connect recovery sources directly to the PC, not through a hub.</bus>
+    <bus code="8"  name="RAID"           readThreads="4" trimWarning="false">Hardware or firmware RAID volume. The member disks are hidden; recover from the array as presented, or image each member and rebuild it.</bus>
+    <bus code="9"  name="iSCSI"          readThreads="2" trimWarning="false">iSCSI disk over the network. Block-level, so unlike SMB/FTP it CAN be scanned and recovered like a local disk.</bus>
+    <bus code="10" name="SAS"            readThreads="4" trimWarning="false">Serial Attached SCSI (server disks, needs a SAS controller).</bus>
+    <bus code="11" name="SATA"           readThreads="4" trimWarning="true">SATA: 2.5"/3.5" HDD or SSD, or an M.2 SATA SSD. Best connection for a failing HDD.</bus>
+    <bus code="12" name="SD card"        readThreads="2" trimWarning="false">SD/SDHC/SDXC card in a built-in reader. Cameras rarely TRIM, so deleted photos are often recoverable.</bus>
+    <bus code="13" name="MMC / eMMC"     readThreads="2" trimWarning="true">MultiMediaCard or soldered eMMC (cheap laptops, tablets).</bus>
+    <bus code="14" name="Virtual"        readThreads="4" trimWarning="false">Virtual disk (e.g. a VHD attached by Windows).</bus>
+    <bus code="15" name="Virtual file"   readThreads="4" trimWarning="false">File-backed virtual disk (mounted VHD/VHDX or ISO). Good for working on a disk image instead of the original.</bus>
+    <bus code="16" name="Storage Spaces" readThreads="4" trimWarning="true">Windows Storage Spaces pool. Recover from the pool, not the member disks.</bus>
+    <bus code="17" name="NVMe"           readThreads="8" trimWarning="true">NVMe SSD: M.2 (PCIe), U.2, add-in card, or an NVMe USB/Thunderbolt enclosure. Very fast, but TRIM usually wipes deleted data.</bus>
+    <bus code="18" name="SCM"            readThreads="8" trimWarning="true">Storage-class memory (e.g. Optane persistent memory).</bus>
+    <bus code="19" name="UFS"            readThreads="4" trimWarning="true">Universal Flash Storage (phones, some tablets/laptops).</bus>
+  </dictionary>
+
+  <!-- Phase 3/3b rules: junk and low-quality previews. Loaded now so they can be tuned ahead of time. -->
+  <dictionary name="junk" previewMaxLongSide="640">
+    <skinSize width="64" height="64"/>
+    <skinSize width="64" height="32"/>
+    <iconSize>16</iconSize><iconSize>24</iconSize><iconSize>32</iconSize><iconSize>48</iconSize>
+    <iconSize>64</iconSize><iconSize>128</iconSize><iconSize>256</iconSize>
+    <thumbnailSize width="160" height="120"/>
+    <thumbnailSize width="120" height="160"/>
+    <thumbnailSize width="256" height="256"/>
+    <thumbnailSize width="320" height="240"/>
+    <thumbnailSize width="240" height="320"/>
+    <thumbnailSize width="96" height="96"/>
+    <gameAssetPathKeyword>.minecraft</gameAssetPathKeyword>
+    <gameAssetPathKeyword>resourcepacks</gameAssetPathKeyword>
+    <gameAssetPathKeyword>steamapps</gameAssetPathKeyword>
+    <gameAssetPathKeyword>AppData</gameAssetPathKeyword>
+    <gameAssetPathKeyword>Program Files</gameAssetPathKeyword>
+  </dictionary>
+
+</dictionaries>
