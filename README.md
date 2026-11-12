@@ -1,5 +1,5 @@
 # data-recovery
-For recovering data off old disks: catalog every disk first, find out what is unique and what is a copy, then (later) copy one clean set.
+For recovering data off old disks: catalog every disk first, find out what is unique and what is a copy, then copy one clean set onto your backup disks.
 
 See [PLAN.md](PLAN.md) for the full plan, the architecture decisions, licenses of third-party code, and open points.
 The PowerShell RecoveryToolkit stays in use until each feature has been ported.
@@ -29,6 +29,63 @@ dotnet test  data-recovery.slnx
 dotnet publish src/RecoveryUI  -c Release -o publish     # single RecoveryToolkit.exe
 dotnet publish src/RecoveryCli -c Release -o publish     # single rtcatalog.exe
 ```
+
+## How to run it
+
+### First time
+Run these in PowerShell, in the repository folder:
+
+```powershell
+dotnet --version                 # must print 10.x; otherwise install the .NET 10 SDK
+Copy-Item .env.example .env      # optional: without it, the catalog is catalog.db in the current folder
+dotnet build data-recovery.slnx
+```
+
+**Where the catalog lives matters.** The toolkit writes its catalog, logs and journal while it works. Keep them on a disk you are **not** recovering from: either the Windows drive (the default) or your backup disk. Set this with `DB_CONNECTION` / `LOG_DIR` in `.env`, or `--db` on the command line. Scanning the disk that holds the catalog is refused, because writing there could overwrite deleted files.
+
+### Desktop app (recommended)
+
+```powershell
+dotnet run --project src/RecoveryUI
+```
+
+You can also press F5 in Visual Studio (start project **RecoveryUI**) or VS Code ("Recovery Toolkit (WinForms)"), or start `RecoveryToolkit.exe` after `dotnet publish` (see Setup). Then follow the three steps on the Home page:
+
+1. **Catalog disks.** Plug in a disk, tick it, press Start. This only reads the disk. Repeat for every disk, one at a time if you like; the catalog remembers them all.
+2. **Report.** See how much is unique and how much is duplicated. If it says something is "not yet decided", press "Fingerprint the rest", or plug in the disk it names.
+3. **Copy.**
+   1. Add your backup disks: the main disk first, then overflow disks.
+   2. Press **Check the plan**. This is a dry run that writes nothing.
+   3. Read the verdict, then press **Start copying**.
+
+   Stop any time; starting again continues where it stopped.
+
+Turn on **Expert mode** (top right) for disk numbers and bus types, more options, the CSV export, Linux (WSL) disks and the live log.
+
+### Command line
+
+```powershell
+dotnet run --project src/RecoveryCli -- <command> [options]     # or: rtcatalog.exe <command> after publishing
+```
+
+A typical run, with source disks F: and G: and backup disks H: (main) and I: (overflow):
+
+```powershell
+rtcatalog scan F:\                      # catalog and fingerprint a source disk (read-only); repeat per disk
+rtcatalog scan G:\
+rtcatalog report --top 20               # what is unique, what is duplicated
+rtcatalog plan H:\ I:\ --csv plan.csv   # dry run: what goes where, does it fit? (writes nothing)
+rtcatalog copy H:\ I:\                  # copy; Ctrl+C stops, running it again continues
+```
+
+`rtcatalog --help` lists every command and option. The full list is under [Command line](#command-line-rtcatalog) below.
+
+### Good to know
+- **Administrator rights** are only needed for Linux (ext4) disks via WSL. Start the app or terminal "as administrator" for those; everything else works as a normal user.
+- **Before long runs:** set sleep to "Never" if you can, and pause Windows Update. The toolkit keeps the PC awake while it works, but it cannot stop an update restart. After a restart, just run the same step again.
+- **Unplugged a disk by accident?** A copy waits up to 30 minutes for it to come back, on any port. Fingerprinting simply stops for that disk and leaves its files untouched.
+- **Nothing is deleted without two confirmations:** first you approve the exact list (by its code), then you confirm again right before deletion.
+- **After a crash or a killed run:** just start the app or rtcatalog again. It frees what the run left behind and lists leftover half-written copies (`rtcatalog cleanup`).
 
 ## Settings (`.env`)
 
