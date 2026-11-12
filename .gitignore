@@ -1,0 +1,11 @@
+bin/
+obj/
+publish/
+*.user
+.vs/
+
+# catalogs hold file lists of private disks; keep them out of git
+*.db
+*.db-wal
+*.db-shm
+*-log.txt
