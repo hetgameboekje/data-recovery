@@ -100,7 +100,7 @@ partial class JunkView
         lblIntro.Name = "lblIntro";
         lblIntro.Text =
             "Not everything on an old disk is worth a place between your photos. This page shows what the rules found in the catalog. " +
-            "It moves and deletes NOTHING: it only decides where the Copy page puts these files.\n" +
+            "It moves and deletes NOTHING: it only decides where the Copy page puts these files. To move junk out of a folder, use the \"Clean up\" page.\n" +
             "•  Junk (thumbnails, icons, broken scraps, desktop.ini, caches) goes to _Review on the backup disk, after your own files and only if there is room.\n" +
             "•  Folders that only work complete (a Minecraft server, a database, a code project) are copied whole, in their own structure, " +
             "to \"Apps and data\". Programs you can reinstall are kept whole too, but in _Review.\n" +

@@ -84,3 +84,16 @@ public interface IConsolidationRepository
     /// <summary>A destination file that was deleted (eviction of an old duplicate).</summary>
     void MarkMissing(long fileId);
 }
+
+/// <summary>
+/// Clean up: keeps the catalog in step when a file is moved or removed, so it never shows files that are gone.
+/// The catalog does not decide what is a duplicate or broken: the Clean up page reads the folders themselves.
+/// </summary>
+public interface ICatalogSync
+{
+    /// <summary>The file at (disk, path) was moved. No-op when it is not catalogued. The row keeps its fingerprints.</summary>
+    void RecordMove(long diskId, string path, long newDiskId, string newPath, long newMtimeTicks, string stamp);
+
+    /// <summary>The file at (disk, path) is gone (deleted, or moved to a disk the catalog does not know).</summary>
+    void MarkMissing(long diskId, string path);
+}

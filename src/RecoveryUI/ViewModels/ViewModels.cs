@@ -7,7 +7,7 @@ namespace RecoveryUI.ViewModels;
 
 // ViewModels: what a view shows, already formatted. Built by controllers from BLL models.
 
-public enum Page { Home, Disks, Scan, Report, DiskMap, Junk, Copy, Settings }
+public enum Page { Home, Disks, Scan, Report, DiskMap, Junk, Cleanup, Copy, Settings }
 
 public sealed class DriveRowViewModel
 {
@@ -203,6 +203,7 @@ public sealed class CopyPlanViewModel
 public sealed class JunkGroupRowViewModel
 {
     [Browsable(false)] public required string Reason { get; init; }
+    [Browsable(false)] public TagKind TagKind { get; init; }
     [DisplayName("What")] public required string What { get; init; }
     [DisplayName("Kind")] public required string Kind { get; init; }
     [DisplayName("Files"), Numeric] public required string Files { get; init; }
@@ -224,6 +225,7 @@ public sealed class BundleRowViewModel
 
 public sealed class JunkExampleRowViewModel
 {
+    [Browsable(false)] public long FileId { get; init; }
     [Browsable(false)] public long DiskId { get; init; }
     [Browsable(false)] public required string RelativePath { get; init; }
     [DisplayName("File")] public required string Path { get; init; }
@@ -244,6 +246,26 @@ public sealed class JunkPageViewModel
     /// <summary>Largest files per junk reason.</summary>
     public required IReadOnlyDictionary<string, IReadOnlyList<JunkExampleRowViewModel>> Examples { get; init; }
 }
+
+// ---- Clean up (duplicates and junk on one page)
+
+/// <summary>What the person chose on the Clean up page.</summary>
+public sealed record CleanupRequestViewModel(string Source, string Target, string? MasterRoot, IReadOnlySet<CleanupCategory> Categories);
+
+/// <summary>One row of the list: what happens to one file, and why.</summary>
+public sealed class CleanupRowViewModel
+{
+    [Browsable(false)] public required CleanupItem Item { get; init; }
+    [DisplayName("File")] public required string File { get; init; }
+    [DisplayName("Goes to")] public required string GoesTo { get; init; }
+    [DisplayName("Why")] public required string Why { get; init; }
+    [DisplayName("The copy that stays")] public required string Stays { get; init; }
+    [DisplayName("Size"), Numeric] public required string Size { get; init; }
+    [DisplayName("From"), ExpertOnly] public required string From { get; init; }
+}
+
+/// <summary>One line of the category list: how many files of that kind were found.</summary>
+public sealed record CleanupCountViewModel(CleanupCategory? Category, string Text, long Files);
 
 // ---- Phase 2b: disk map
 

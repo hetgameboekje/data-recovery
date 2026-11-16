@@ -24,6 +24,8 @@ public interface IMainView
     void AppendLog(string line, bool warn);
     void ShowError(string title, string message);
     void ShowInfo(string title, string message);
+    /// <summary>Yes/No question, "No" by default (UI thread only).</summary>
+    bool Confirm(string title, string message);
 }
 
 public interface IHomeView : IPageView
@@ -78,7 +80,7 @@ public interface ISettingsView : IPageView
     string? PickCatalogFile();
 }
 
-/// <summary>Phase 3: what the junk and keep-together rules found (read-only; the Copy page acts on it).</summary>
+/// <summary>Phase 3: what the junk and keep-together rules found (read-only; moving them happens on the Clean up page).</summary>
 public interface IJunkView : IPageView
 {
     /// <summary>Reload the rules (dictionaries.xml) and check the catalog again.</summary>
@@ -124,4 +126,28 @@ public interface ICopyView : IPageView
     void ShowResult(string text, bool success);
     string? PickCsvFile();
     bool Confirm(string title, string message);
+}
+
+/// <summary>
+/// Clean up: one page for duplicates and junk. Choose the folder to clean, where unwanted files go, and (to merge a folder
+/// such as a recovery dump) the master location. Find shows the list; nothing moves before the person's OK.
+/// </summary>
+public interface ICleanupView : IPageView
+{
+    event EventHandler? FindRequested;
+    event EventHandler? MoveRequested;
+    event EventHandler? StopRequested;
+    event EventHandler? UndoRequested;
+    event EventHandler? EmptyTargetRequested;
+    /// <summary>A category was ticked or unticked after Find: the list and the counts follow.</summary>
+    event EventHandler? FilterChanged;
+    event EventHandler<string>? OpenInExplorerRequested;
+    CleanupRequestViewModel Request { get; }
+    void ShowStatus(string text, bool warning = false);
+    void ShowCounts(IReadOnlyList<CleanupCountViewModel> counts);
+    void ShowRows(IReadOnlyList<CleanupRowViewModel> rows, string summary, bool canMove);
+    void ShowDecisions(IReadOnlyList<string> lines);
+    void SetUndo(string? text);
+    void SetRunning(bool running);
+    void ShowProgress(ProgressViewModel progress);
 }

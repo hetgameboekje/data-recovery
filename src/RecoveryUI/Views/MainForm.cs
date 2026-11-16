@@ -22,7 +22,7 @@ public partial class MainForm : Form, IMainView
         navButtons = new()
         {
             [Page.Home] = btnHome, [Page.Disks] = btnDisks, [Page.Scan] = btnScan,
-            [Page.Report] = btnReport, [Page.DiskMap] = btnDiskMap, [Page.Junk] = btnJunk, [Page.Copy] = btnCopy, [Page.Settings] = btnSettings,
+            [Page.Report] = btnReport, [Page.DiskMap] = btnDiskMap, [Page.Junk] = btnJunk, [Page.Cleanup] = btnCleanup, [Page.Copy] = btnCopy, [Page.Settings] = btnSettings,
         };
         ApplyTheme();
         foreach (var (page, button) in navButtons)
@@ -135,4 +135,8 @@ public partial class MainForm : Form, IMainView
 
     public void ShowInfo(string title, string message) =>
         this.OnUi(() => MessageBox.Show(this, message, title, MessageBoxButtons.OK, MessageBoxIcon.Information));
+
+    /// <summary>Yes/No, "No" by default. Call on the UI thread.</summary>
+    public bool Confirm(string title, string message) =>
+        MessageBox.Show(this, message, title, MessageBoxButtons.YesNo, MessageBoxIcon.Question, MessageBoxDefaultButton.Button2) == DialogResult.Yes;
 }

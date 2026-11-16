@@ -8,11 +8,11 @@ namespace RecoveryUI.Controllers;
 /// <summary>Navigation, Simple/Expert mode, the shared busy state and the live log.</summary>
 public sealed class MainController(
     IMainView main, OperationRunner runner, UiLog log, CatalogService catalog,
-    HomeController home, DisksController disks, ScanController scan, ReportController report, DiskMapController diskMap, JunkController junk, CopyController copy, SettingsController settings)
+    HomeController home, DisksController disks, ScanController scan, ReportController report, DiskMapController diskMap, JunkController junk, CleanupController cleanup, CopyController copy, SettingsController settings)
 {
     readonly Dictionary<Page, IPageController> pages = new()
     {
-        [Page.Home] = home, [Page.Disks] = disks, [Page.Scan] = scan, [Page.Report] = report, [Page.DiskMap] = diskMap, [Page.Junk] = junk, [Page.Copy] = copy, [Page.Settings] = settings,
+        [Page.Home] = home, [Page.Disks] = disks, [Page.Scan] = scan, [Page.Report] = report, [Page.DiskMap] = diskMap, [Page.Junk] = junk, [Page.Cleanup] = cleanup, [Page.Copy] = copy, [Page.Settings] = settings,
     };
     bool expert;
 
@@ -24,6 +24,7 @@ public sealed class MainController(
         report.Attach();
         diskMap.Attach();
         junk.Attach();
+        cleanup.Attach();
         copy.Attach();
         settings.Attach();
 

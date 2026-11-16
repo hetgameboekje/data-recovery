@@ -116,3 +116,26 @@ public interface IProcessInfo
     /// <summary>True if that process (same id AND same start time) is still running. Unknown counts as alive.</summary>
     bool IsAlive(int processId, long startTicks);
 }
+
+/// <summary>
+/// Clean up: moves and removes files where they are (not only on copy destinations). Used only after the person saw the
+/// exact list and said OK (delete: both steps of the deletion check).
+/// </summary>
+public interface ISourceFileOperations
+{
+    /// <summary>Rename on the same volume. Creates the parent folders; never overwrites an existing file.</summary>
+    void Rename(string fromPath, string toPath);
+    void Delete(string fullPath);
+    /// <summary>Removes the folder only when it is completely empty. True when it was removed.</summary>
+    bool DeleteFolderIfEmpty(string folder);
+}
+
+/// <summary>Clean up: the undo record of every run (where each file was, where it went).</summary>
+public interface ICleanupLogStore
+{
+    /// <summary>Saves a finished run; returns where.</summary>
+    string Save(IReadOnlyList<Models.CleanupLogEntry> entries);
+    /// <summary>The latest run that was not undone yet, or null.</summary>
+    (string File, IReadOnlyList<Models.CleanupLogEntry> Entries)? Latest();
+    void MarkUndone(string file);
+}

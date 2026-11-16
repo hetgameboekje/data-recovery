@@ -21,6 +21,7 @@ public static class ServiceRegistration
         services.AddTransient<DuplicateCheckService>();
         services.AddTransient<DiskMapService>();
         services.AddTransient<JunkService>();
+        services.AddTransient<CleanupService>();
         services.AddSingleton<RunStateService>();
         services.AddSingleton<IDeletionConfirmer, RefuseAllDeletions>();   // frontends register their own (step 2 of every deletion)
         return services;

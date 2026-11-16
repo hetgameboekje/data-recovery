@@ -28,6 +28,7 @@ public static class ServiceRegistration
                 services.AddTransient<IReportRepository, SqliteReportRepository>();
                 services.AddTransient<ICatalogExchange, SqliteCatalogExchange>();
                 services.AddTransient<IConsolidationRepository, SqliteConsolidationRepository>();
+                services.AddTransient<ICatalogSync, SqliteCatalogSync>();
                 break;
             case DatabaseProvider.SqlServer:
                 services.AddSingleton(new SqlServerDb(settings.ConnectionString));
@@ -37,6 +38,7 @@ public static class ServiceRegistration
                 services.AddTransient<IReportRepository, SqlServerReportRepository>();
                 services.AddTransient<ICatalogExchange, SqlServerCatalogExchange>();
                 services.AddTransient<IConsolidationRepository, SqlServerConsolidationRepository>();
+                services.AddTransient<ICatalogSync, SqlServerCatalogSync>();
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(settings), settings.Provider, "Unknown database provider");
@@ -50,6 +52,8 @@ public static class ServiceRegistration
         services.AddSingleton<IFileContentReader>(new FileContentReader());
         services.AddSingleton<IKeepAwake, KeepAwake>();
         services.AddSingleton<IFileStore, FileStore>();
+        services.AddSingleton<ISourceFileOperations, SourceFileOperations>();
+        services.AddSingleton<ICleanupLogStore>(new CleanupLogFile(settings.LogDirectory));
         services.AddSingleton<IProtectedLocations, WindowsProtectedLocations>();
         services.AddSingleton<IRunStateStore>(new RunStateFile(settings.LogDirectory));
         services.AddSingleton<IProcessInfo, ProcessInfo>();

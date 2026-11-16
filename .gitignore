@@ -21,3 +21,6 @@ id_ed25519*
 *.db-shm
 *-log.txt
 logs/
+
+# raw conversation transcripts: personal paths, not for git
+docs/sessions/*.jsonl

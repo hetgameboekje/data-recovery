@@ -50,6 +50,7 @@ static class Program
             .AddSingleton<IReportView, ReportView>()
             .AddSingleton<IDiskMapView, DiskMapView>()
             .AddSingleton<IJunkView, JunkView>()
+            .AddSingleton<ICleanupView, CleanupView>()
             .AddSingleton<ICopyView, CopyView>()
             .AddSingleton<ISettingsView, SettingsView>()
             // controllers
@@ -59,6 +60,7 @@ static class Program
             .AddSingleton<ReportController>()
             .AddSingleton<DiskMapController>()
             .AddSingleton<JunkController>()
+            .AddSingleton<CleanupController>()
             .AddSingleton<CopyController>()
             .AddSingleton<SettingsController>()
             .AddSingleton<MainController>()

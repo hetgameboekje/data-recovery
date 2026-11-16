@@ -32,6 +32,7 @@ partial class MainForm
         lblComing = new Label();
         btnDiskMap = new Button();
         btnJunk = new Button();
+        btnCleanup = new Button();
         btnCopy = new Button();
         btnFutureCorrupt = new Button();
         btnFutureDeep = new Button();
@@ -116,6 +117,7 @@ partial class MainForm
         panelNav.Controls.Add(btnReport);
         panelNav.Controls.Add(btnDiskMap);
         panelNav.Controls.Add(btnJunk);
+        panelNav.Controls.Add(btnCleanup);
         panelNav.Controls.Add(btnCopy);
         panelNav.Controls.Add(btnSettings);
         panelNav.Controls.Add(lblComing);
@@ -184,6 +186,12 @@ partial class MainForm
         btnJunk.Name = "btnJunk";
         btnJunk.Size = new Size(194, 38);
         btnJunk.Text = "   Junk and apps";
+        //
+        // btnCleanup
+        //
+        btnCleanup.Name = "btnCleanup";
+        btnCleanup.Size = new Size(194, 38);
+        btnCleanup.Text = "   Clean up";
         //
         // btnCopy
         //
@@ -307,6 +315,7 @@ partial class MainForm
     private Label lblComing;
     private Button btnDiskMap;
     private Button btnJunk;
+    private Button btnCleanup;
     private Button btnCopy;
     private Button btnFutureCorrupt;
     private Button btnFutureDeep;

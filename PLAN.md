@@ -97,6 +97,24 @@ This file records the requests and questions so far, the current PowerShell tool
 - Built: two-step verification for every deletion (3.6), unplug handling for scan, hash and copy (3.8), and risk items 11–14 (3.7): catalog on a source disk is refused, the PC stays awake, reads have a deadline, long paths are reported.
 - Interpretation of "2-step verification": (1) approve the exact list by its code, (2) confirm by typing `DELETE` (or a second dialog), then an automatic re-check of each file.
 
+### 2026-11-12: "Action buttons on Junk and apps and on the report: review duplicates, delete them or move them to another folder/disk, per disk and per category"
+- **Report** now says what it reports (an intro line): every catalogued file is sorted by content into unique / extra copies / not yet decided. It still changes nothing by itself.
+- **Report > Clean up duplicates** (new tab, also the "Clean up duplicates…" button): filter the extra copies by disk ("Extra copies on") and type, choose which copy of each group stays (oldest date, newest date, shortest path, or "prefer to keep copies on" a disk), then **Move** or **Delete** everything that matches or only the selected rows. Clearing one disk keeps the copy on another disk where there is one. The copy that stays is never listed or touched.
+- **Junk and apps**: a disk filter, multi-select, and the same Move / Delete bar. It acts on the selected rows of the open tab: whole reasons (e.g. all Thumbnails), whole keep-together folders, or single files.
+- **Safety** (`FileActionService`): a dry run first (what is reachable, what waits for an unplugged disk, protected folders refused). Delete = the existing two-step check (approve the exact list, then the final dialog) plus a re-check per file (same size and modified time as catalogued; for an extra copy its kept copy must still exist; optional content check against the fingerprint). Move = one confirmation; files go to `<folder>\<disk>\<original path>`; between volumes it is copy (`.rtpart`), verify, rename, then remove the original. The catalog follows every move/delete, so no rescan is needed. Both warn that they write to the disk the files are on (risk 11: don't do it on a disk you still recover deleted files from).
+
+### 2026-11-12: "The move took my originals out of G:\Photos / G:\Audio – undo it; only duplicates may move, never the originals"
+- **What happened:** "Clean up duplicates" with no disk/folder filter and keep rule "oldest date" moved 14,078 files (94.79 GB) to `G:\process`. 12,531 came from the recovery dump `G:\From_E` (intended), but 1,547 came from the sorted folders (1,414 `G:\Photos`, 132 `G:\Audio`, 1 `G:\Videos`), because for those groups the "oldest" copy was the one in the dump or on F:. Nothing was lost: every moved file still had an identical copy outside `G:\process`.
+- **Undone:** all 14,078 files were renamed back to their original paths (dry run first: 0 conflicts) and their catalog rows pointed back; `G:\process` is gone. The catalog was backed up before the undo.
+- **Fixed:** Report > Clean up duplicates has **"Only clean up inside this folder"** (e.g. `G:\From_E`). Then only copies inside that folder are listed, and the copy that stays is always one outside it when the group has one, whatever the keep rule. Groups that exist only inside the folder keep one copy there. Tested with the real layout (`DuplicateFolderScopeTests`).
+- The move/delete confirmation now lists where the files are taken from, per top folder (e.g. "G:\Photos 1,414 files"), so a surprise shows before "Yes".
+- **Not changed:** the earlier junk move of 2,789 thumbnails to `G:\thumbnails`, and the one deleted junk file `G:\Photos\f954694536.png` (236 B).
+
+### 2026-11-12: "Clean master folders: duplicates moved out, nothing hidden, no maze, ask me first"
+- Full record (what was expected, every accident and its cause, the agreed rules, final state of G:, to-dos for the app): **[docs/cleanup-session-2026-11-12.md](docs/cleanup-session-2026-11-12.md)**.
+- Reference code to port to C#: `tools/media_cleanup/media_cleanup.py`.
+- Then designed with the user and built: the **Clean up** page (sidebar). One page for duplicates and junk: folder to clean, where unwanted files go (`<target>\<why>\<type>`), optional merge into master folders; Find shows the list, Move asks first, Undo puts the last run back, deleting only via "Empty the clean-up folder" (two steps). Reads the folders themselves, keeps the catalog in step. The old Report tab and the Junk page's Move/Delete bar were removed. Details: section 5 of that file.
+
 ---
 
 ## 2. Current setup: PowerShell RecoveryToolkit (`file management` version)

@@ -15,6 +15,7 @@ partial class ReportView
     private void InitializeComponent()
     {
         layout = new TableLayoutPanel();
+        lblIntro = new Label();
         flowTiles = new FlowLayoutPanel();
         tileTotal = new Controls.StatTile();
         tileUnique = new Controls.StatTile();
@@ -54,17 +55,30 @@ partial class ReportView
         //
         layout.ColumnCount = 1;
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        layout.Controls.Add(flowTiles, 0, 0);
-        layout.Controls.Add(lblNeeded, 0, 1);
-        layout.Controls.Add(panelPending, 0, 2);
-        layout.Controls.Add(tabs, 0, 3);
+        layout.Controls.Add(lblIntro, 0, 0);
+        layout.Controls.Add(flowTiles, 0, 1);
+        layout.Controls.Add(lblNeeded, 0, 2);
+        layout.Controls.Add(panelPending, 0, 3);
+        layout.Controls.Add(tabs, 0, 4);
         layout.Dock = DockStyle.Fill;
         layout.Name = "layout";
-        layout.RowCount = 4;
+        layout.RowCount = 5;
+        layout.RowStyles.Add(new RowStyle());
         layout.RowStyles.Add(new RowStyle());
         layout.RowStyles.Add(new RowStyle());
         layout.RowStyles.Add(new RowStyle());
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        //
+        // lblIntro
+        //
+        lblIntro.AutoSize = true;
+        lblIntro.Margin = new Padding(0, 0, 0, 8);
+        lblIntro.MaximumSize = new Size(1000, 0);
+        lblIntro.Name = "lblIntro";
+        lblIntro.Text =
+            "What is on all catalogued disks together, from the catalog only (nothing on a disk is changed here). Every file is sorted by its content: " +
+            "\"unique\" exists once; \"extra copies\" are files whose exact content (same fingerprint) is also somewhere else, so one copy of each is enough; " +
+            "\"not yet decided\" still needs fingerprinting. To move extra copies and junk out of a folder, use the \"Clean up\" page.";
         //
         // flowTiles
         //
@@ -224,7 +238,7 @@ partial class ReportView
         AutoScaleMode = AutoScaleMode.Font;
         Controls.Add(layout);
         Name = "ReportView";
-        Size = new Size(940, 640);
+        Size = new Size(940, 760);
         layout.ResumeLayout(false);
         layout.PerformLayout();
         flowTiles.ResumeLayout(false);
@@ -246,6 +260,7 @@ partial class ReportView
     #endregion
 
     private TableLayoutPanel layout;
+    private Label lblIntro;
     private FlowLayoutPanel flowTiles;
     private Controls.StatTile tileTotal;
     private Controls.StatTile tileUnique;

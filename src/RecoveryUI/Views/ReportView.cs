@@ -3,7 +3,7 @@ using RecoveryUI.ViewModels;
 
 namespace RecoveryUI.Views;
 
-/// <summary>"How much is unique, how much is a copy, does it fit?" Expert mode adds the duplicate groups.</summary>
+/// <summary>"How much is unique, how much is a copy, does it fit?" Read-only. Expert mode adds the duplicate groups.</summary>
 public partial class ReportView : UserControl, IReportView
 {
     public event EventHandler? RefreshRequested;
@@ -22,6 +22,7 @@ public partial class ReportView : UserControl, IReportView
         UiTheme.Primary(btnHashPending);
         UiTheme.Secondary(btnGroups);
         UiTheme.Secondary(btnCheckDuplicates);
+        lblIntro.ForeColor = UiTheme.Muted;
         new ToolTip().SetToolTip(btnCheckDuplicates, "Re-read every copy of 20 random duplicate groups and compare them byte for byte (SHA-256). Read-only.");
         btnCheckDuplicates.Click += (_, _) => CheckDuplicatesRequested?.Invoke(this, EventArgs.Empty);
         lblNeeded.Font = UiTheme.HeadingFont;
